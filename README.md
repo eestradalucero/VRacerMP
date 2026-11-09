@@ -61,6 +61,9 @@ so remove or update them after changing a track; every racer must use the same r
 Code that both sides use lives in `shared/` and is copied into both packages by the build.
 
 ## Credits
-VRacerMP grew out of RaceMP by Funky7Monkey (MIT); that copyright notice is kept in LICENSE.
-It calls BeamNG's own race engine and markers, which stay under BeamNG's licence and are not
-included here.
+VRacerMP calls BeamNG's own race engine and markers, which stay under BeamNG's licence and are
+not included here.
+
+## Thank you
+Thanks to Funky7Monkey and AbhiMayadam for RaceMP, which got us racing on BeamMP and inspired
+this project.

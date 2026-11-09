@@ -1,4 +1,4 @@
-# RaceMP — Requirements
+# VRacerMP — Requirements
 
 Living document. Updated as we discuss; every change is recorded in the
 [Decision log](#10-decision-log).

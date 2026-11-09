@@ -406,7 +406,7 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | A-3 | Project name `VRacerMP` everywhere? | Yes: folders `VRacerMP`/`vracerMP`, extension `vracerMP_main`, event prefix `vracerMP_`. |
 | A-4 | imgui for the MVP, CEF later? | Yes. |
 | A-5 | Shared code copied into both packages by the build script? | Yes. |
-| A-6 | Clean slate? | Remove the old RaceMP code, trigger prefabs and copied level folders. Keep git history and the MIT licence notice. |
+| A-6 | Clean slate? | Remove the old RaceMP code, trigger prefabs and copied level folders. (Later: history and licence notice dropped, see decision log.) |
 | A-7 | Second client or fake racer? | MVP includes a server-side fake racer. |
 
 ## 9. Decision log
@@ -419,3 +419,4 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-08 | Results are announced in chat (`resultsAnnouncer`) instead of written to files. Markers: only the next pathnode (orange) and the two after it (grey) are shown. |
 | 2026-11-08 | VRacerMP.zip no longer ships the BajaSur tracks: the `Vracer_BajaSur` map mod already contains them, and two copies of the same mission made the winning copy depend on load order. |
 | 2026-11-08 | UI moves from imgui to BeamNG-native Vue apps (UI-T3..T7): four apps, added once to each layout and then owned by the player, view models built in Lua. |
+| 2026-11-08 | VRacerMP is published as its own project (github.com/eestradalucero/VRacerMP) with a fresh history. No RaceMP code remains, so the RaceMP licence notice is removed; copyright is VracerBCS. Funky7Monkey and AbhiMayadam are thanked in the README. |
