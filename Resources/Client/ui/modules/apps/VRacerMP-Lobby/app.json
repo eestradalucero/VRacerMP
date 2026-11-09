@@ -1,0 +1,22 @@
+{
+  "domElement": "<vracermp-lobby></vracermp-lobby>",
+  "directive": "vracermpLobby",
+  "name": "VRacerMP Lobby",
+  "description": "Register for a VRacerMP race at a track's start area; the owner sets laps and starts the race",
+  "types": ["ui.apps.categories.racing"],
+  "category": "Gameplay",
+  "author": "VRacerMP",
+  "version": "1.0",
+  "css": {
+    "top": "290px",
+    "right": "320px",
+    "width": "330px",
+    "height": "360px",
+    "min-width": "280px",
+    "min-height": "220px"
+  },
+  "isAuxiliary": false,
+  "interactive": "required",
+  "preserveAspectRatio": false,
+  "vue": true
+}

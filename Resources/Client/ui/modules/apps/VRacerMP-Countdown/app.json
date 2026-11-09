@@ -1,0 +1,22 @@
+{
+  "domElement": "<vracermp-countdown></vracermp-countdown>",
+  "directive": "vracermpCountdown",
+  "name": "VRacerMP Countdown",
+  "description": "3-2-1-GO countdown at the start of a VRacerMP race",
+  "types": ["ui.apps.categories.racing"],
+  "category": "Gameplay",
+  "author": "VRacerMP",
+  "version": "1.0",
+  "css": {
+    "top": "18%",
+    "left": "0px",
+    "right": "0px",
+    "margin": "auto",
+    "width": "420px",
+    "height": "260px"
+  },
+  "isAuxiliary": false,
+  "interactive": "no",
+  "preserveAspectRatio": false,
+  "vue": true
+}

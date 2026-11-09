@@ -1,0 +1,22 @@
+{
+  "domElement": "<vracermp-race-panel></vracermp-race-panel>",
+  "directive": "vracermpRacePanel",
+  "name": "VRacerMP Race Panel",
+  "description": "Position, lap, race time, best lap, pathnodes and gaps during a VRacerMP race",
+  "types": ["ui.apps.categories.racing"],
+  "category": "Gameplay",
+  "author": "VRacerMP",
+  "version": "1.0",
+  "css": {
+    "top": "50px",
+    "right": "320px",
+    "width": "290px",
+    "height": "220px",
+    "min-width": "240px",
+    "min-height": "180px"
+  },
+  "isAuxiliary": false,
+  "interactive": "no",
+  "preserveAspectRatio": false,
+  "vue": true
+}

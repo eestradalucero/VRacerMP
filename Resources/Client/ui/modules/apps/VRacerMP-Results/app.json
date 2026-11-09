@@ -1,0 +1,22 @@
+{
+  "domElement": "<vracermp-results></vracermp-results>",
+  "directive": "vracermpResults",
+  "name": "VRacerMP Results",
+  "description": "Final standings when a VRacerMP race ends",
+  "types": ["ui.apps.categories.racing"],
+  "category": "Gameplay",
+  "author": "VRacerMP",
+  "version": "1.0",
+  "css": {
+    "top": "14%",
+    "left": "0px",
+    "right": "0px",
+    "margin": "auto",
+    "width": "660px",
+    "height": "440px"
+  },
+  "isAuxiliary": false,
+  "interactive": "required",
+  "preserveAspectRatio": false,
+  "vue": true
+}
