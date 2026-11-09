@@ -66,9 +66,17 @@ function FakeSession:getHudData()
   return { position = 1, racerCount = 2, currentLap = 1, laps = self.laps, raceTimeMs = 1000, pathnodesPassed = 0, pathnodeCount = 2 }
 end
 
+-- Fake start area markers: remember which tracks were marked last frame.
+local FakeMarkers = {}
+FakeMarkers.__index = FakeMarkers
+function FakeMarkers.new() return setmetatable({ shownTracks = {} }, FakeMarkers) end
+function FakeMarkers:render(tracks) self.shownTracks = tracks end
+function FakeMarkers:clear() self.shownTracks = {} end
+
 local function loadController()
   installGlobals()
   package.loaded["vracerMP/race/raceSession"] = FakeSession
+  package.loaded["vracerMP/tracks/startAreaMarkers"] = FakeMarkers
   package.loaded["vracerMP/controller/clientController"] = nil
   return require("vracerMP/controller/clientController")
 end
@@ -103,6 +111,12 @@ t.test("installs the four apps into the current layout once", function()
   runFrames(1)
   t.assertEquals(#stubs.addedApps, 4)
   t.assertEquals(stubs.addedApps[1], "vracermpRacePanel")
+end)
+
+t.test("the start area is marked while registration is possible", function()
+  controller:render(0.016, 0.016)
+  t.assertEquals(#controller.startAreaMarkers.shownTracks, 1)
+  t.assertEquals(controller.startAreaMarkers.shownTracks[1].missionId, "testlevel/timeTrial/001-Test")
 end)
 
 t.test("in a start area the lobby app offers registration", function()
@@ -140,10 +154,24 @@ t.test("countdown and race panel follow the start", function()
   runFrames(1, 0.01)
   t.assertEquals(lastUiView("VRacerMPCountdown").text, "GO!")
   t.assertEquals(lastUiView("VRacerMPRace").lap, "1 / 2")
+  t.assertTrue(lastUiView("VRacerMPRace").canRetire)
+  controller:render(0.016, 0.016)
+  t.assertEquals(#controller.startAreaMarkers.shownTracks, 0, "no start markers while racing")
+end)
+
+t.test("retire button sends unregister for our race", function()
+  controller:handleUiAction({ action = "retire" })
+  t.assertEquals(lastServerMessage("vracerMP_unregister").raceId, "r-1")
+end)
+
+t.test("results of a race we left do not end our new race", function()
+  serverSends("vracerMP_raceResults", { raceId = "r-old", laps = 1, raceTrack = { name = "Old" }, racers = {} })
+  runFrames(1)
+  t.assertEquals(lastUiView("VRacerMPRace").visible, true, "still racing r-1")
 end)
 
 t.test("results show at the end and close on the button", function()
-  serverSends("vracerMP_raceResults", { laps = 2, raceTrack = { name = "Circuito" },
+  serverSends("vracerMP_raceResults", { raceId = "r-1", laps = 2, raceTrack = { name = "Circuito" },
     racers = { { position = 1, name = "Me", status = "finished", raceStats = { totalTime = 90000, bestLapTime = 44000, gapToWinner = 0 } } } })
   runFrames(1)
   t.assertTrue(lastUiView("VRacerMPResults").visible)
@@ -167,4 +195,5 @@ t.test("unknown UI actions are ignored", function()
 end)
 
 package.loaded["vracerMP/race/raceSession"] = nil
+package.loaded["vracerMP/tracks/startAreaMarkers"] = nil
 return t.runAll("clientController")

@@ -74,8 +74,28 @@ local function finishRace(self, race)
   removeRace(self, race)
 end
 
-local function finishRaceIfComplete(self, race)
-  if race:isComplete() then finishRace(self, race) end
+-- Every player left before GO: nobody raced, so no results (FIN-9).
+local function cancelRace(self, race)
+  log('I', logTag, "race", race.raceId, "cancelled: every player left before GO")
+  race:abort()
+  removeRace(self, race)
+end
+
+-- Every player dropped out (FIN-9): before GO the race is cancelled; after GO any fake
+-- racers stop and the race finishes with everyone DNF, so the track is free again.
+local function endRaceWithoutPlayers(self, race)
+  if not race:isRunning() then return cancelRace(self, race) end
+  race:retireRemainingFakeRacers()
+  sendStandings(self, race)
+  finishRace(self, race)
+end
+
+local function endRaceIfOver(self, race)
+  if race:isComplete() then
+    finishRace(self, race)
+  elseif race:haveAllPlayersDroppedOut() then
+    endRaceWithoutPlayers(self, race)
+  end
 end
 
 local function announceRacerLeftTheRace(self, race, racer)
@@ -88,7 +108,8 @@ local function concludeRacers(self, race, racers)
     announceRacerLeftTheRace(self, race, racer)
   end
   sendStandings(self, race)
-  finishRaceIfComplete(self, race)
+  broadcastLobby(self, race) -- racer statuses changed: those who left can register elsewhere
+  endRaceIfOver(self, race)
 end
 
 -- Registration ---------------------------------------------------------------

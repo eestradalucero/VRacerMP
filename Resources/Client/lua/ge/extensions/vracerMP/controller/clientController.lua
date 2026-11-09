@@ -6,6 +6,8 @@ local protocol = require("vracerMP/shared/protocol")
 local clientNetwork = require("vracerMP/network/clientNetwork")
 local trackCatalog = require("vracerMP/tracks/trackCatalog")
 local startAreaWatcher = require("vracerMP/tracks/startAreaWatcher")
+local startAreaVisibility = require("vracerMP/tracks/startAreaVisibility")
+local StartAreaMarkers = require("vracerMP/tracks/startAreaMarkers")
 local LobbyStore = require("vracerMP/lobby/lobbyStore")
 local RaceSession = require("vracerMP/race/raceSession")
 local playerVehicle = require("vracerMP/race/playerVehicle")
@@ -48,6 +50,7 @@ function ClientController.new()
   self.secondsUntilLayoutCheck = 0
   self.countdown = Countdown.new()
   self.presenter = UiPresenter.new(uiBridge.sendToUi)
+  self.startAreaMarkers = StartAreaMarkers.new()
   return self
 end
 
@@ -67,6 +70,7 @@ end
 
 function ClientController:unloadLevel()
   endSession(self)
+  self.startAreaMarkers:clear()
   self.tracks = {}
   self.results = nil
   self.levelLoaded = false
@@ -78,6 +82,10 @@ end
 
 local function isAboutMySession(self, payload)
   return self.session ~= nil and payload.raceId == self.session.raceId
+end
+
+local function isRacingNow(self)
+  return self.session ~= nil and self.session.state ~= RaceSession.state.finished
 end
 
 local function handleLobbyUpdated(self, lobby)
@@ -134,6 +142,7 @@ local function handleRacerFinished(self, payload)
 end
 
 local function handleRaceResults(self, results)
+  if isRacingNow(self) and not isAboutMySession(self, results) then return end -- a race we left earlier
   endSession(self)
   self.results = results
 end
@@ -178,10 +187,6 @@ end
 
 function ClientController:resendUi()
   self.presenter:resendAll()
-end
-
-local function isRacingNow(self)
-  return self.session ~= nil and self.session.state ~= RaceSession.state.finished
 end
 
 -- The lobby to show: the race we joined, else the race at the start area we are in.
@@ -245,8 +250,14 @@ function ClientController:update(dtReal, dtSim)
   updateUi(self, dtReal)
 end
 
+local function renderStartAreaMarkers(self, dt)
+  local openTracks = startAreaVisibility.getTracksOpenForRegistration(self.tracks, self.lobbyStore, isRacingNow(self))
+  self.startAreaMarkers:render(openTracks, dt)
+end
+
 function ClientController:render(dt, dtSim)
   if self.session then self.session:render(dt, dtSim) end
+  renderStartAreaMarkers(self, dt)
 end
 
 return ClientController

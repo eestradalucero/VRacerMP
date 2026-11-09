@@ -83,6 +83,18 @@ function Race:isOver()
   return self.state == raceState.finished or self.state == raceState.aborted
 end
 
+function Race:isRunning()
+  return self.state == raceState.running
+end
+
+-- True when every real (not fake) racer is DNF: nobody is racing and nobody finished.
+function Race:haveAllPlayersDroppedOut()
+  for _, racer in ipairs(self.racers) do
+    if not racer.isFake and not racer:isDnf() then return false end
+  end
+  return true
+end
+
 function Race:getElapsedRaceMs()
   if not self.startedAtMs then return 0 end
   return self.clock:getNowMs() - self.startedAtMs
@@ -227,9 +239,11 @@ function Race:beginRunning()
   self.startedAtIso = self.clock:getUtcIso()
   local missingRacers = {}
   for _, racer in ipairs(self.racers) do
-    if racer.isOnGrid then
+    if racer:hasLeftTheRace() then
+      -- retired before GO: stays DNF
+    elseif racer.isOnGrid then
       racer:startRacing()
-    elseif not racer:hasLeftTheRace() then
+    else
       racer:markDnf(dnfReason.notOnGrid)
       table.insert(missingRacers, racer)
     end
@@ -329,6 +343,19 @@ function Race:getDueAction()
 end
 
 -- End ----------------------------------------------------------------------
+
+-- Fake racers only exist for testing; when no real player is left they stop too.
+-- Returns the fake racers made DNF.
+function Race:retireRemainingFakeRacers()
+  local retiredRacers = {}
+  for _, racer in ipairs(self.racers) do
+    if racer.isFake and not racer:hasLeftTheRace() then
+      racer:markDnf(dnfReason.retired)
+      table.insert(retiredRacers, racer)
+    end
+  end
+  return retiredRacers
+end
 
 function Race:finish()
   self.state = raceState.finished

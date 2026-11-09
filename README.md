@@ -30,9 +30,13 @@ When a race ends, its results are posted in the server chat as one JSON message 
 to the server console. The plugin writes no files.
 
 ## Racing
-1. Drive into a track's start area: the registration panel opens.
+1. Start areas where you can register show BeamNG's mission marker. Drive into one: the
+   registration panel opens.
 2. Press **Register**. The owner can change laps and the DNF timeout, then press **Start race**.
 3. Wait for the countdown, race, and see the results at the end.
+4. To drop out, press **Retire** on the race panel and confirm. You are DNF and stay in the
+   results, and you can register for another race straight away. If every racer drops out, the
+   race ends (before GO it is simply cancelled) and the track is free again.
 
 Testing alone? Register, then type `/vracer fake 60` in chat to add a fake opponent
 that laps in about 60 s.

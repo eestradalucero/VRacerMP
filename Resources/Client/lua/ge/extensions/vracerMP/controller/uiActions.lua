@@ -21,6 +21,12 @@ local function unregister(controller)
   if lobby then clientNetwork.send(toServer.unregister, { raceId = lobby.raceId }) end
 end
 
+-- Retire from the race we are in: the server makes us DNF (FIN-8).
+local function retire(controller)
+  local session = controller.session
+  if session then clientNetwork.send(toServer.unregister, { raceId = session.raceId }) end
+end
+
 local function startRace(controller)
   local lobby = controller.panelLobby
   if lobby then clientNetwork.send(toServer.startRace, { raceId = lobby.raceId }) end
@@ -56,6 +62,7 @@ local handlers = {
   register = register,
   unregister = unregister,
   startRace = startRace,
+  retire = retire,
   changeLaps = changeLaps,
   changeDnfTimeout = changeDnfTimeout,
   closeResults = closeResults,

@@ -16,7 +16,7 @@
     "min-height": "180px"
   },
   "isAuxiliary": false,
-  "interactive": "no",
+  "interactive": "required",
   "preserveAspectRatio": false,
   "vue": true
 }

@@ -1,6 +1,8 @@
 -- VRacerMP client: class LobbyStore, the latest lobby state of every race the server announced.
 -- Pure: fed by network messages, read by the UI.
 
+local raceStates = require("vracerMP/shared/raceStates")
+
 local LobbyStore = {}
 LobbyStore.__index = LobbyStore
 
@@ -34,22 +36,26 @@ function LobbyStore:findLobbyForTrack(missionId)
   return anyLobby
 end
 
-local function containsRacer(lobby, playerId)
+-- Registered, or racing; not once they finished or retired.
+local function isStillInRace(lobby, playerId)
   for _, racer in ipairs(lobby.racers or {}) do
-    if racer.id == playerId then return true end
+    if racer.id == playerId then
+      return racer.status ~= raceStates.racerStatus.finished and racer.status ~= raceStates.racerStatus.dnf
+    end
   end
   return false
 end
 
+-- The race the player is still in; after finishing or retiring they are free again (REG-12).
 function LobbyStore:findLobbyOfPlayer(playerId)
   for _, lobby in pairs(self.lobbiesByRaceId) do
-    if containsRacer(lobby, playerId) then return lobby end
+    if isStillInRace(lobby, playerId) then return lobby end
   end
   return nil
 end
 
 function LobbyStore.isPlayerRegistered(lobby, playerId)
-  return lobby ~= nil and containsRacer(lobby, playerId)
+  return lobby ~= nil and isStillInRace(lobby, playerId)
 end
 
 function LobbyStore.isPlayerOwner(lobby, playerId)

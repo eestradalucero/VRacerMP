@@ -54,6 +54,7 @@ t.test("race view formats every value", function()
   t.assertEquals(view.pathnodes, "4 / 19")
   t.assertEquals(view.aheadGap, "-0:00.214")
   t.assertNil(view.behindGap)
+  t.assertTrue(view.canRetire)
 end)
 
 t.test("race view shows finish and DNF text", function()
@@ -63,6 +64,7 @@ t.test("race view shows finish and DNF text", function()
   local dnf = raceView.build({ currentLap = 1, laps = 3, pathnodesPassed = 0, pathnodeCount = 19,
     finishInfo = { status = "dnf", dnfReason = "timeout" } })
   t.assertEquals(dnf.finishText, "DNF (timeout)")
+  t.assertEquals(dnf.canRetire, false, "no Retire button once out of the race")
 end)
 
 t.test("results view builds rows from the results JSON", function()

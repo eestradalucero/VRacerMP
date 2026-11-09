@@ -1,5 +1,5 @@
 -- VRacerMP server: class RaceRegistry, every race on the server and who is in which.
--- Several races can exist at once (REG-11); a player is in at most one (REG-8).
+-- Several races can exist at once (REG-11); a player is racing in at most one (REG-8).
 
 local Race = require("vracerMP/races/race")
 
@@ -63,9 +63,12 @@ function RaceRegistry:isTrackBusy(missionId)
   return false
 end
 
+-- The race the player is still in. Once they finished or dropped out they are free to
+-- register for another race (REG-12), even while this one goes on.
 function RaceRegistry:findRaceOfPlayer(playerId)
   for _, race in ipairs(self.races) do
-    if not race:isOver() and race:getRacer(playerId) then return race end
+    local racer = race:getRacer(playerId)
+    if racer and not race:isOver() and not racer:hasLeftTheRace() then return race end
   end
   return nil
 end

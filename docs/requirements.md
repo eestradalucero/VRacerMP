@@ -61,6 +61,8 @@ and the race results sent to the server chat as JSON.
 | REG-9 | Registration closes when the race starts. | MVP | Proposed |
 | REG-10 | Default lap count comes from `race.race.json → defaultLaps`. | MVP | Proposed |
 | REG-11 | Several races, on different tracks, can exist and run at the same time. The data model and protocol support it from day one; the UI may expose one race per track. | Later (design: MVP) | Agreed |
+| REG-12 | A player who finished or retired is free to register for another race, even while their old race goes on. Results of a race they left do not interrupt their new race. | MVP | Agreed |
+| REG-13 | Start areas where you can register (no race yet, or a race taking registrations) show BeamNG's mission marker, with the Time Trial icon. Tracks with a race under way show none, and none show while you race. Fallback if the game API fails: a light column with the track name. | MVP | Agreed |
 
 ### 4.2 Race start (START)
 
@@ -125,6 +127,8 @@ like BeamMP's chat, and players can move them in BeamNG's layout editor (archite
 | FIN-5 | The race ends when every racer is finished or DNF. An in-game results panel (position, name, total time, best lap, DNF reason) is shown to racers and stays until they close it or a new race starts. This is in addition to the server file (LOG). | MVP | Agreed |
 | FIN-7 | Non-racers are not restricted during a race: they can drive on the track and collide with racers. | MVP | Agreed |
 | FIN-6 | After the race ends, pathnodes are removed and racers drive freely. | MVP | Proposed |
+| FIN-8 | The race panel has a **Retire** button while you race (from the grid until you finish). It asks "Retire from the race?" with **Yes, retire** / **Cancel**; the question cancels itself after 5 s. Retiring makes you DNF (`retired`) and you stay in the standings and results. | MVP | Agreed |
+| FIN-9 | When every player has dropped out (DNF): before GO the race is cancelled quietly (no results); after GO it finishes with results and everyone DNF, fake racers stop too. Either way the track is free for a new race. If someone finished, the race goes on as usual (FIN-5). | MVP | Agreed |
 
 ### 4.7 Results log (LOG)
 
@@ -268,3 +272,4 @@ All parts are feasible with BeamMP + BeamNG Lua. Risks, highest first:
 | 2026-11-08 | LOG changed: results go to the server chat as one JSON message when the race ends, and to the console. The server writes no files. A results file may come back later as an off-by-default option (LOG-3). |
 | 2026-11-08 | TRK-5: BajaSur tracks come from the map mod; VRacerMP.zip ships no tracks for now. |
 | 2026-11-08 | UI: BeamNG-native look; apps on by default and movable by players; one compact race panel. |
+| 2026-11-08 | Added REG-12 (register again after leaving a race), REG-13 (BeamNG mission markers at start areas open for registration), FIN-8 (Retire button with confirmation), FIN-9 (everyone dropped out: cancel before GO, results after GO). No navigation to start areas: they are already on the map. |

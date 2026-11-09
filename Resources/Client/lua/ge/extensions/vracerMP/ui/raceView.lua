@@ -6,6 +6,7 @@ local timeFormat = require("vracerMP/shared/timeFormat")
 local M = {}
 
 local HIDDEN = { visible = false }
+local FINISHED_STATE = "finished" -- RaceSession.state.finished
 
 local function getFinishText(finishInfo)
   if not finishInfo then return nil end
@@ -33,6 +34,7 @@ local function build(hud)
     aheadGap = formatGapOrNil(hud.aheadGapMs, true),
     behindGap = formatGapOrNil(hud.behindGapMs, false),
     finishText = getFinishText(hud.finishInfo),
+    canRetire = hud.finishInfo == nil and hud.state ~= FINISHED_STATE,
   }
 end
 

@@ -48,7 +48,7 @@ sequenceDiagram
 |-------|---------|-------|
 | `vracerMP_requestLobbies` | `{}` | Sent when the level is loaded. Server answers with one `lobbyUpdated` per race. |
 | `vracerMP_register` | `{ track: { missionId, level, name, closed, pathnodeCount, defaultLaps }, vehicle: { model, config } }` | Creates the track's race if none is open; first registrant is owner. `pathnodeCount` = crossings per lap. |
-| `vracerMP_unregister` | `{ raceId }` | Before the start: leave. After: DNF `retired`. |
+| `vracerMP_unregister` | `{ raceId }` | Before the start: leave. After (from the grid on): DNF `retired`; also sent by the race panel's Retire button. |
 | `vracerMP_configure` | `{ raceId, laps?, dnfTimeoutSeconds? }` | Owner only, before the start. Laps 1–99 (always 1 on point-to-point tracks); timeout 10–3600 s. |
 | `vracerMP_startRace` | `{ raceId }` | Owner only. |
 | `vracerMP_gridReady` | `{ raceId }` | Car is on its grid slot. |
@@ -58,8 +58,8 @@ sequenceDiagram
 
 | Event | To | Payload |
 |-------|----|---------|
-| `vracerMP_lobbyUpdated` | everyone | `{ raceId, missionId, trackName, closed, state, ownerId, ownerName, laps, dnfTimeoutSeconds, racers: [{ id, name, status }] }` |
-| `vracerMP_raceRemoved` | everyone | `{ raceId, missionId }` |
+| `vracerMP_lobbyUpdated` | everyone | `{ raceId, missionId, trackName, closed, state, ownerId, ownerName, laps, dnfTimeoutSeconds, racers: [{ id, name, status }] }`. Also sent when racers finish or retire, so clients know who is free to register again. |
+| `vracerMP_raceRemoved` | everyone | `{ raceId, missionId }`. After `raceResults` when a race ends; alone when it was cancelled (everyone left before GO). |
 | `vracerMP_raceStarting` | each racer | `{ raceId, missionId, laps, gridSlot, racerCount }` |
 | `vracerMP_countdown` | racers | `{ raceId, goInMs }` (3000) |
 | `vracerMP_go` | racers | `{ raceId }` |

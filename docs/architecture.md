@@ -213,6 +213,8 @@ Resources/
       tracks/trackInfo.lua            -- class TrackInfo (info.json + race.race.json, pure)
       tracks/gridBuilder.lua          -- grid slots, generated fallback (pure)
       tracks/startAreaWatcher.lua     -- which start area is the car in (pure)
+      tracks/startAreaVisibility.lua  -- which start areas show a marker: open for registration (pure, REG-13)
+      tracks/startAreaMarkers.lua     -- the only file that touches BeamNG's missionMarker (column fallback)
       lobby/lobbyStore.lua            -- class LobbyStore: latest lobby of every race (pure)
       race/raceSession.lua            -- class RaceSession: our car's race, HUD data
       race/raceEngineAdapter.lua      -- the only file that touches gameplay/race/race.lua
@@ -420,3 +422,4 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-08 | VRacerMP.zip no longer ships the BajaSur tracks: the `Vracer_BajaSur` map mod already contains them, and two copies of the same mission made the winning copy depend on load order. |
 | 2026-11-08 | UI moves from imgui to BeamNG-native Vue apps (UI-T3..T7): four apps, added once to each layout and then owned by the player, view models built in Lua. |
 | 2026-11-08 | VRacerMP is published as its own project (github.com/eestradalucero/VRacerMP) with a fresh history. No RaceMP code remains, so the RaceMP licence notice is removed; copyright is VracerBCS. Funky7Monkey and AbhiMayadam are thanked in the README. |
+| 2026-11-08 | Start areas use BeamNG's own mission marker (`gameplay/markers/missionMarker`). BeamNG only updates those markers in freeroam/career, so `startAreaMarkers` creates them and feeds them each frame the data `markerInteraction` would; if that fails it falls back to a debug-drawn column. Retire uses the existing `unregister` message. The coordinator ends a race when every player is DNF (cancel before GO, results after GO) and broadcasts the lobby whenever racers finish or retire, so clients know who is free to register again. |
