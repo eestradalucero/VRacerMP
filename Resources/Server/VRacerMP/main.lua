@@ -3,17 +3,10 @@
 -- BeamMP calls event handlers by global name, so the handle* functions below are
 -- the only globals in the plugin (architecture ORG-6).
 
-local DEFAULT_PLUGIN_FOLDER = "Resources/Server/VRacerMP"
-
-local function getPluginFolder()
-  local info = type(debug) == "table" and debug.getinfo and debug.getinfo(1, "S")
-  if type(info) ~= "table" or type(info.source) ~= "string" then return DEFAULT_PLUGIN_FOLDER end
-  local source = info.source:gsub("^@", ""):gsub("\\", "/")
-  return source:match("^(.*)/[^/]*$") or DEFAULT_PLUGIN_FOLDER
-end
-
-local pluginFolder = getPluginFolder()
-package.path = pluginFolder .. "/?.lua;" .. package.path
+-- BeamMP runs plugins from the server folder, so this relative path finds our modules.
+-- (No debug library: BeamMP hosts refuse plugins that use it.)
+local PLUGIN_FOLDER = "Resources/Server/VRacerMP"
+package.path = PLUGIN_FOLDER .. "/?.lua;" .. package.path
 
 local protocol = require("vracerMP/shared/protocol")
 local log = require("vracerMP/util/serverLog").log
@@ -98,4 +91,4 @@ end
 
 registerClientEvents()
 registerServerEvents()
-log('I', logTag, "VRacerMP server loaded (protocol v" .. protocol.version .. ") from", pluginFolder)
+log('I', logTag, "VRacerMP server loaded (protocol v" .. protocol.version .. ") from", PLUGIN_FOLDER)

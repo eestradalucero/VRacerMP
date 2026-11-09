@@ -1,6 +1,7 @@
 """Smoke test: loads the BUILT server plugin (export/Resources/Server/VRacerMP/main.lua) on
 Lua 5.3 with a mock BeamMP API, then plays a short race through the real event handlers
-and prints the results message sent to chat.
+and prints the results message sent to chat. It runs from export/ like a server runs from its
+own folder, and without the debug library, which BeamMP hosts refuse.
 
 Run tools/build.ps1 first, then:
     python tools/smokeTestServer.py
@@ -42,15 +43,16 @@ def to_lua(lua, value):
 
 def main():
     os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-    plugin_main = "export/Resources/Server/VRacerMP/main.lua"
-    if not os.path.exists(plugin_main):
+    plugin_main = "Resources/Server/VRacerMP/main.lua"
+    if not os.path.exists(os.path.join("export", plugin_main)):
         print("Build first: tools/build.ps1")
         return 1
+    os.chdir("export")
 
     lua = lupa.lua53.LuaRuntime()
     lua.globals().PYTHON_JSON_DECODE = lambda text: to_lua(lua, json.loads(text))
     mock = lua.execute(MOCK_BEAMMP)
-    lua.execute(f'dofile("{plugin_main}")')
+    lua.execute(f'debug = nil; dofile("{plugin_main}")')
 
     g = lua.globals()
 
