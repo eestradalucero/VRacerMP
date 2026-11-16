@@ -22,7 +22,8 @@ local function buildLobby(race)
     closed = race.track.closed,
     state = race.state,
     ownerId = owner and owner.playerId or -1,
-    ownerName = owner and owner.name or "",
+    ownerName = race:getOwnerName(),
+    serverOwned = race:isServerOwned(), -- created from the console or a plugin (B-4)
     laps = race.settings.laps,
     dnfTimeoutSeconds = race.settings.dnfTimeoutSeconds,
     racers = buildLobbyRacers(race),

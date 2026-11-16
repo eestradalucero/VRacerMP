@@ -61,6 +61,7 @@ local function build(track, lobby, myPlayerId, lapRecord)
     laps = lobby and lobby.laps or track.defaultLaps,
     dnfTimeoutText = getDnfTimeoutText(lobby and lobby.dnfTimeoutSeconds),
     serverRecordText = getServerRecordText(lapRecord),
+    ownerText = lobby and lobby.serverOwned and "Run by the server" or nil, -- created by command (B-4)
     racers = buildRacerRows(lobby or {}, myPlayerId),
   }
 end

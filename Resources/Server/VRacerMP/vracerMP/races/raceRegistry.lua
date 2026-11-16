@@ -19,8 +19,10 @@ local function createRaceId(self)
   return "r-" .. self.lastRaceNumber
 end
 
-function RaceRegistry:createRace(track)
-  local race = Race.new(createRaceId(self), track, self.clock)
+-- ownerPlayerId: Race.SERVER for races the server creates; nil when the first player to
+-- register becomes the owner.
+function RaceRegistry:createRace(track, ownerPlayerId)
+  local race = Race.new(createRaceId(self), track, self.clock, ownerPlayerId)
   table.insert(self.races, race)
   return race
 end

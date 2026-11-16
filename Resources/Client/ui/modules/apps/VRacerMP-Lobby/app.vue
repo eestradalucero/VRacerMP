@@ -9,6 +9,7 @@
     <div class="track-name">{{ view.trackName }}</div>
     <div class="status">{{ view.statusText }}</div>
     <div v-if="view.serverRecordText" class="server-record">{{ view.serverRecordText }}</div>
+    <div v-if="view.ownerText" class="server-record">{{ view.ownerText }}</div>
 
     <div v-if="view.hasRace" class="settings">
       <div class="setting">

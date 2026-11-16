@@ -33,6 +33,7 @@ local START_AREA_CHECK_SECONDS = 0.25
 local LAYOUT_CHECK_SECONDS = 2
 local NOTICE_SECONDS = 5
 local RESULTS_AUTO_CLOSE_SECONDS = 30 -- B-6
+local LOBBY_REQUEST_RETRY_SECONDS = 2
 
 local function showNotice(text)
   ui_message(text, NOTICE_SECONDS, "vracerMP")
@@ -47,6 +48,8 @@ function ClientController.new()
   self.results = nil
   self.isListening = false
   self.levelLoaded = false
+  self.isWelcomed = false -- the server answered our lobby request
+  self.secondsUntilLobbyRequest = 0
   self.trackAtStartArea = nil
   self.panelTrack = nil
   self.panelLobby = nil
@@ -60,12 +63,36 @@ end
 
 -- Level -------------------------------------------------------------------------------
 
+local function serializeTracksForServer(tracks)
+  local serialized = {}
+  for index, track in ipairs(tracks) do serialized[index] = track:serializeForServer() end
+  return serialized
+end
+
+-- Asks for the races and lap records, and tells the server which tracks this map has, so
+-- races can be created by command (B-4).
+local function requestLobbies(self)
+  log('D', logTag, "asking the server for races; reporting " .. #self.tracks .. " tracks")
+  clientNetwork.send(toServer.requestLobbies, { tracks = serializeTracksForServer(self.tracks) })
+end
+
+-- A message sent while we are still joining the server can be lost, so we ask again every
+-- few seconds until the server welcomes us.
+local function requestLobbiesUntilWelcomed(self, dtReal)
+  if self.isWelcomed or not self.isListening or not self.levelLoaded then return end
+  self.secondsUntilLobbyRequest = self.secondsUntilLobbyRequest - dtReal
+  if self.secondsUntilLobbyRequest > 0 then return end
+  self.secondsUntilLobbyRequest = LOBBY_REQUEST_RETRY_SECONDS
+  requestLobbies(self)
+end
+
 function ClientController:loadLevel()
   self.tracks = trackCatalog.loadTracksForLevel(getCurrentLevelIdentifier())
   self.lobbyStore:clear()
   self.lapRecordStore:clear()
   self.levelLoaded = true
-  if self.isListening then clientNetwork.send(toServer.requestLobbies, {}) end
+  self.isWelcomed = false
+  self.secondsUntilLobbyRequest = 0
 end
 
 local function endSession(self)
@@ -79,6 +106,7 @@ function ClientController:unloadLevel()
   self.tracks = {}
   self.results = nil
   self.levelLoaded = false
+  self.isWelcomed = false
   self.trackAtStartArea = nil
   self.lobbyStore:clear()
 end
@@ -91,6 +119,11 @@ end
 
 local function isRacingNow(self)
   return self.session ~= nil and self.session.state ~= RaceSession.state.finished
+end
+
+local function handleWelcome(self, payload)
+  self.isWelcomed = true
+  log('I', logTag, "joined VRacerMP on the server (protocol v" .. tostring(payload.protocolVersion) .. ")")
 end
 
 local function handleLobbyUpdated(self, lobby)
@@ -115,7 +148,8 @@ local function handleRaceStarting(self, startInfo)
   self.results = nil
   self.session = RaceSession.new(track, startInfo, vehicleId)
   if self.session:placeOnGrid() then
-    clientNetwork.send(toServer.gridReady, { raceId = startInfo.raceId })
+    -- The car we race with: players registered by a command had not told the server yet.
+    clientNetwork.send(toServer.gridReady, { raceId = startInfo.raceId, vehicle = playerVehicle.getDescription() })
   end
 end
 
@@ -184,6 +218,7 @@ local messageHandlers = {
   [toClient.notice] = handleNotice,
   [toClient.penalty] = handlePenalty,
   [toClient.lapRecord] = handleLapRecord,
+  [toClient.welcome] = handleWelcome,
 }
 
 -- BeamMP's networking functions may appear after our extension loads, so this is retried
@@ -194,7 +229,6 @@ local function listenToServerOnce(self)
     clientNetwork.listen(eventName, function(payload) handler(self, payload) end)
   end
   self.isListening = true
-  if self.levelLoaded then clientNetwork.send(toServer.requestLobbies, {}) end
 end
 
 -- UI ------------------------------------------------------------------------------------
@@ -277,6 +311,7 @@ end
 
 function ClientController:update(dtReal, dtSim)
   listenToServerOnce(self)
+  requestLobbiesUntilWelcomed(self, dtReal)
   refreshStartArea(self, dtReal)
   updateSession(self, dtSim)
   updateUi(self, dtReal)

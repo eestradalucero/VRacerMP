@@ -186,7 +186,16 @@ Resources/
     vracerMP/
       coordinator/raceCoordinator.lua -- player events -> race changes + messages + results
       coordinator/messageBuilder.lua  -- payloads sent to clients (pure)
-      coordinator/chatCommands.lua    -- /vracer commands (testing helpers)
+      commands/commandEntryPoints.lua -- class: console, chat and plugin entry points (B-4)
+      commands/commandRunner.lua      -- prefixes, parse, check options, run one command
+      commands/commandLine.lua        -- reads "create --track X --laps 3" (pure)
+      commands/commandList.lua        -- every command; help and docs/commands.md come from it
+      commands/commandTargets.lua     -- which race, which players, which settings; permissions
+      commands/raceCommands.lua       -- create, add, remove, set, start, cancel, fake
+      commands/infoCommands.lua       -- tracks, races
+      commands/raceText.lua           -- one-line descriptions of races and tracks (pure)
+      commands/commandsDoc.lua        -- the generated part of docs/commands.md (pure)
+      tracks/trackDirectory.lua       -- class TrackDirectory: tracks reported by clients (B-4)
       races/raceRegistry.lua          -- class RaceRegistry: all races; which race a player is in
       races/race.lua                  -- class Race (state machine, pure)
       races/racer.lua                 -- class Racer (pure)
@@ -197,6 +206,7 @@ Resources/
       races/gapTracker.lua            -- class GapTracker (pure)
       network/serverNetwork.lua       -- send / broadcast / decode (edge: MP.*)
       network/playerDirectory.lua     -- player names and BeamMP ids (edge: MP.*)
+      network/pluginEvents.lua        -- events for other server plugins (edge: MP.*)
       results/resultsAnnouncer.lua    -- sends Race:serialize() to chat as JSON when the race ends
       testing/fakeRacer.lua           -- class FakeRacer, pretend opponent (A-7)
       util/serverClock.lua            -- class ServerClock (edge: MP.CreateTimer)
@@ -395,7 +405,7 @@ session bar top-centre, chat bottom-left):
 |-------|-----|
 | Unit | `python tools/runTests.py` runs `tests/runAll.lua` on **Lua 5.3 and LuaJIT** (through the `lupa` package), so shared code is checked on both. Covers `/shared`, the server race rules and coordinator (with fakes), and the pure client modules. `lua tests/runAll.lua` works with any installed Lua. |
 | Server smoke | `python tools/smokeTestServer.py` loads the **built** plugin with a mock BeamMP API and plays a race against a fake racer, ending with the results chat message. |
-| Local server | BeamMP-Server on this PC + one BeamMP client: registration, start, a full race alone (with `/vracer fake`), results in chat. |
+| Local server | BeamMP-Server on this PC + one BeamMP client: registration, start, a full race alone (with `/vracer fake`), results in chat; commands from the server console (`vracer help`). |
 | Multiplayer | Second client (second PC or a friend). |
 
 The client's game-facing files (adapters, UI, controller) can only be tested in the game.
@@ -430,3 +440,4 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-16 | Controls get their own section: `controlsSection` adds `vracerMP` to BeamNG's `core_input_categories` table at load (a mod cannot ship categories.lua). |
 | 2026-11-16 | Missed-checkpoint catch-up (B-3) was built by moving BeamNG's race engine state from outside and dropped after the in-game test: on the first frame after GO the engine's previous wheel positions are still at the origin, so the line to the car crossed every pathnode and races finished at GO. The user chose to keep BeamNG's checkpoint logic untouched. What stays is a generic penalty path: `RaceCoordinator:givePenalty` → `Race:givePenalty` → `Racer:addPenalty`, with raw/total times, final order by total time, and the `penalty` message. |
 | 2026-11-16 | Lap records live in a `LapRecords` object injected into the coordinator (memory only). Records are kept per track and per vehicle model from the start. |
+| 2026-11-16 | Commands (B-4): one runner and one command list for three entry points (console `onConsoleInput`, chat `onChatMessage`, plugins `vracerMP_command`). Commands call public coordinator methods (`createRace`, `registerPlayer`, `unregisterPlayer`, `configureRace`, `startRace`, `cancelRace`, `addFakeRacer`); the client handlers reuse them, so the UI and commands follow the same rules. The console and plugins act as `Race.SERVER`, which owns the races it creates and passes every owner check. Tracks come from the clients (`requestLobbies.tracks`) into a `TrackDirectory` in memory. `help` and `docs/commands.md` are both built from `commandList`; a test fails when the document is out of date. Plugin events go through an injected `pluginEvents` edge (`MP.TriggerGlobalEvent`, JSON strings). |

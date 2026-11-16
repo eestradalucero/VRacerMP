@@ -46,19 +46,20 @@ sequenceDiagram
 
 | Event | Payload | Notes |
 |-------|---------|-------|
-| `vracerMP_requestLobbies` | `{}` | Sent when the level is loaded. Server answers with one `lobbyUpdated` per race and one `lapRecord` per track that has a record. |
+| `vracerMP_requestLobbies` | `{ tracks: [{ missionId, level, name, closed, pathnodeCount, defaultLaps }] }` | Sent when the level is loaded, and again every 2 s until the server answers with `welcome` (a message sent while still joining can be lost). `tracks` are the map's race tracks, kept in memory so races can be created by command (B-4; at most 500 are read). Server answers with one `lobbyUpdated` per race and one `lapRecord` per track that has a record. |
 | `vracerMP_register` | `{ track: { missionId, level, name, closed, pathnodeCount, defaultLaps }, vehicle: { model } }` | Creates the track's race if none is open; first registrant is owner. `pathnodeCount` = crossings per lap. |
 | `vracerMP_unregister` | `{ raceId }` | Before the start: leave. After (from the grid on): DNF `retired`; also sent by the race panel's Retire button. |
 | `vracerMP_configure` | `{ raceId, laps?, dnfTimeoutSeconds? }` | Owner only, before the start. Laps 1–99 (always 1 on point-to-point tracks); timeout 0 (no limit) or 10–3600 s. |
 | `vracerMP_startRace` | `{ raceId }` | Owner only. |
-| `vracerMP_gridReady` | `{ raceId }` | Car is on its grid slot. |
+| `vracerMP_gridReady` | `{ raceId, vehicle: { model } }` | Car is on its grid slot. `vehicle` is the car the player races with (players registered by command had sent none). |
 | `vracerMP_pathnodeReached` | `{ raceId, crossingNumber, raceTimeMs, lapCompleted }` | `crossingNumber` counts from 1 across laps; the server ignores anything but the next number. `raceTimeMs` comes from BeamNG's race engine (sub-frame precise). |
 
 ## Server → client
 
 | Event | To | Payload |
 |-------|----|---------|
-| `vracerMP_lobbyUpdated` | everyone | `{ raceId, missionId, trackName, closed, state, ownerId, ownerName, laps, dnfTimeoutSeconds, racers: [{ id, name, status }] }`. Also sent when racers finish or retire, so clients know who is free to register again. |
+| `vracerMP_welcome` | one player | `{ protocolVersion }` — answer to `requestLobbies`; the client stops asking. |
+| `vracerMP_lobbyUpdated` | everyone | `{ raceId, missionId, trackName, closed, state, ownerId, ownerName, serverOwned, laps, dnfTimeoutSeconds, racers: [{ id, name, status }] }`. `serverOwned` is true for races created from the console or a plugin (B-4): `ownerId` is then -1 and `ownerName` "Server". Also sent when racers finish or retire, so clients know who is free to register again. |
 | `vracerMP_raceRemoved` | everyone | `{ raceId, missionId }`. After `raceResults` when a race ends; alone when it was cancelled (everyone left before GO). |
 | `vracerMP_raceStarting` | each racer | `{ raceId, missionId, laps, gridSlot, racerCount }` |
 | `vracerMP_countdown` | racers | `{ raceId, goInMs }` (3000) |
@@ -87,9 +88,7 @@ sequenceDiagram
 When a race ends the server sends `Race:serialize()` as compact JSON in one chat message
 to everyone (`MP.SendChatMessage(-1, json)`) and prints it to the server console (LOG-1).
 
-## Chat commands (testing)
+## Commands and plugin events
 
-| Command | Effect |
-|---------|--------|
-| `/vracer fake [lapSeconds]` | Adds a fake racer (default 90 s per lap) to your race while it is registering. |
-| `/vracer` | Lists commands. |
+Commands for the server console (`vracer ...`), chat (`/vracer ...`) and other server plugins,
+and the events plugins can listen to, are in [commands.md](commands.md) (B-4).
