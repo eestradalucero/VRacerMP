@@ -9,27 +9,45 @@ local PLUGIN_FOLDER = "Resources/Server/VRacerMP"
 package.path = PLUGIN_FOLDER .. "/?.lua;" .. package.path
 
 local protocol = require("vracerMP/shared/protocol")
+local serverOptions = require("vracerMP/serverOptions")
 local log = require("vracerMP/util/serverLog").log
 local ServerClock = require("vracerMP/util/serverClock")
 local RaceRegistry = require("vracerMP/races/raceRegistry")
 local ResultsAnnouncer = require("vracerMP/results/resultsAnnouncer")
 local LapRecords = require("vracerMP/records/lapRecords")
+local TrackDirectory = require("vracerMP/tracks/trackDirectory")
 local RaceCoordinator = require("vracerMP/coordinator/raceCoordinator")
-local chatCommands = require("vracerMP/coordinator/chatCommands")
+local CommandEntryPoints = require("vracerMP/commands/commandEntryPoints")
 local serverNetwork = require("vracerMP/network/serverNetwork")
 local playerDirectory = require("vracerMP/network/playerDirectory")
+local pluginEvents = require("vracerMP/network/pluginEvents")
 
 local logTag = "vracerMP"
 local TICK_EVENT = "vracerMP_tick"
 local TICK_INTERVAL_MS = 100
 local CANCEL_CHAT_MESSAGE = 1
 
+local registry = RaceRegistry.new(ServerClock.new())
+local trackDirectory = TrackDirectory.new()
+
 local coordinator = RaceCoordinator.new({
-  registry = RaceRegistry.new(ServerClock.new()),
+  registry = registry,
   network = serverNetwork,
   playerDirectory = playerDirectory,
   resultsAnnouncer = ResultsAnnouncer.new(serverNetwork),
   lapRecords = LapRecords.new(),
+  trackDirectory = trackDirectory,
+  pluginEvents = pluginEvents,
+})
+
+local commandEntryPoints = CommandEntryPoints.new({
+  coordinator = coordinator,
+  registry = registry,
+  trackDirectory = trackDirectory,
+  playerDirectory = playerDirectory,
+  sendChat = MP.SendChatMessage,
+  pluginEvents = pluginEvents,
+  testingCommands = serverOptions.testingCommands,
 })
 
 -- Decodes the payload and calls the coordinator; invalid payloads are dropped.
@@ -63,11 +81,20 @@ function handleVehicleReset(playerId)
   coordinator:handleVehicleReset(playerId)
 end
 
+-- Commands (B-4) ----------------------------------------------------------------
+
 function handleChatMessage(playerId, playerName, message)
-  local reply = chatCommands.runCommand(coordinator, playerId, message)
-  if not reply then return end
-  MP.SendChatMessage(playerId, reply)
-  return CANCEL_CHAT_MESSAGE
+  if commandEntryPoints:runChatMessage(playerId, message) then return CANCEL_CHAT_MESSAGE end
+end
+
+-- BeamMP prints what this returns; other console input is left to the server and other plugins.
+function handleConsoleInput(input)
+  return commandEntryPoints:runConsoleInput(input)
+end
+
+-- Another plugin: MP.TriggerGlobalEvent("vracerMP_command", "start r-1", "myRequestId").
+function handlePluginCommand(commandText, requestId)
+  return commandEntryPoints:runPluginCommand(commandText, requestId)
 end
 
 -- Registration -------------------------------------------------------------------
@@ -87,6 +114,8 @@ local function registerServerEvents()
   MP.RegisterEvent("onPlayerDisconnect", "handlePlayerDisconnect")
   MP.RegisterEvent("onVehicleReset", "handleVehicleReset")
   MP.RegisterEvent("onChatMessage", "handleChatMessage")
+  MP.RegisterEvent("onConsoleInput", "handleConsoleInput")
+  MP.RegisterEvent(protocol.pluginEvents.command, "handlePluginCommand")
   MP.RegisterEvent(TICK_EVENT, "handleTick")
   MP.CreateEventTimer(TICK_EVENT, TICK_INTERVAL_MS)
 end
@@ -94,3 +123,4 @@ end
 registerClientEvents()
 registerServerEvents()
 log('I', logTag, "VRacerMP server loaded (protocol v" .. protocol.version .. ") from", PLUGIN_FOLDER)
+if serverOptions.testingCommands then log('I', logTag, "testing commands are on (local test server)") end

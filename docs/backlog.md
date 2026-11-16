@@ -21,7 +21,7 @@ Build one step at a time; stop after each step so it can be tested in game.
 | B-7 | Results highlight the local player | Done (tested 2026-11-16) |
 | B-8 | Server lap record | Done (tested 2026-11-16) |
 | B-3 | Missed checkpoint: catch-up + penalties | Dropped (2026-11-16): penalty framework kept |
-| B-4 | Commands (console, chat, plugins) + `docs/commands.md` | Next |
+| B-4 | Commands (console, chat, plugins) + `docs/commands.md` | Done (tested 2026-11-16) |
 | B-2 | Race information UI changes | Waiting (details from the user) |
 | B-9 | English and Spanish translations (BabelEdit) | Later (last, maybe a future session) |
 | B-10 | Rankings: best time per player, per car and overall | Later (to discuss) |
@@ -114,6 +114,18 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
 - **Plugin interface:** another plugin sends the event `vracerMP_command` with the command
   text and receives the reply in a reply event; VRacerMP also sends race updates and results
   as events plugins can listen to. Documented as a versioned contract.
+- **Built (2026-11-16)**, documented in [commands.md](commands.md). Decided while building:
+  - Races are named by id (`r-1`); `[race]` comes first, e.g. `fake r-1 60`.
+  - A race created in chat is owned by its creator, who is registered too.
+  - Races the server owns stay open while empty, until started or cancelled.
+  - `cancel` works at any point (also during the race); nobody gets results.
+  - `fake` is owner-only now (before: anyone registered), and only exists on a local test
+    server: `tools/build.ps1 -ServerPath` turns it on in the installed copy
+    (`serverOptions.testingCommands`); the release zip, `help` and the doc don't have it.
+  - Tracks: id = mission folder (`001-Circuito`), full mission id or name; a unique part of
+    the name also works.
+  - Plugin events: `vracerMP_commandReply`, `vracerMP_raceUpdated`, `vracerMP_raceRemoved`,
+    `vracerMP_raceResults` (JSON strings).
 
 ### B-9 Translations (last)
 - English and Spanish; edited with BabelEdit (JSON files, one per language).
@@ -173,3 +185,4 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
 | 2026-11-16 | B-1 vehicle configs no longer sent; B-5 DNF 0 = no limit; B-7 own row highlighted in results. |
 | 2026-11-16 | B-3 missed-checkpoint catch-up dropped; penalty framework kept for future penalty types. |
 | 2026-11-16 | B-6 results close by a bindable control (own VRacerMP controls section) and after 30 s; B-8 server lap record. |
+| 2026-11-16 | B-4 commands for the console, chat and plugins (`--all`, test-only `fake`); clients resend their tracks until the server welcomes them. |

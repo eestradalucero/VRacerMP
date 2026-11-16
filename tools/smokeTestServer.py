@@ -1,6 +1,7 @@
 """Smoke test: loads the BUILT server plugin (export/Resources/Server/VRacerMP/main.lua) on
 Lua 5.3 with a mock BeamMP API, then plays a short race through the real event handlers
-and prints the results message sent to chat. It runs from export/ like a server runs from its
+and prints the results message sent to chat. Then runs commands (B-4) from the console and
+from a plugin. It runs from export/ like a server runs from its
 own folder, and without the debug library, which BeamMP hosts refuse.
 
 Run tools/build.ps1 first, then:
@@ -14,7 +15,7 @@ import sys
 import lupa.lua53
 
 MOCK_BEAMMP = r"""
-local mock = { sent = {}, events = {}, timers = {}, nowSeconds = 0, chat = {} }
+local mock = { sent = {}, events = {}, timers = {}, nowSeconds = 0, chat = {}, pluginEvents = {} }
 local function noop() end
 MP = {
   RegisterEvent = function(eventName, handlerName) mock.events[eventName] = handlerName end,
@@ -25,6 +26,10 @@ MP = {
   end,
   CreateTimer = function() return { GetCurrent = function() return mock.nowSeconds end } end,
   GetPlayerName = function(playerId) return "Player" .. playerId end,
+  GetPlayers = function() return { [0] = "Player0", [1] = "Player1" } end,
+  TriggerGlobalEvent = function(eventName, data)
+    table.insert(mock.pluginEvents, { eventName = eventName, data = data })
+  end,
   GetPlayerIdentifiers = function(playerId) return { beammp = tostring(1000 + playerId) } end,
   SendChatMessage = function(playerId, text) table.insert(mock.chat, text) end,
 }
@@ -52,6 +57,13 @@ def main():
     lua = lupa.lua53.LuaRuntime()
     lua.globals().PYTHON_JSON_DECODE = lambda text: to_lua(lua, json.loads(text))
     mock = lua.execute(MOCK_BEAMMP)
+    release_options = lua.execute('return dofile("Resources/Server/VRacerMP/vracerMP/serverOptions.lua")')
+    print("release testingCommands:", release_options.testingCommands)
+    if release_options.testingCommands:
+        print("The release build must not have testing commands")
+        return 1
+    # This run plays a race against a fake racer, like a local test server.
+    lua.execute('package.loaded["vracerMP/serverOptions"] = { testingCommands = true }')
     lua.execute(f'debug = nil; dofile("{plugin_main}")')
 
     g = lua.globals()
@@ -107,7 +119,35 @@ def main():
     results_chat = chat_messages[-1] if chat_messages else ""
     print("results chat message (%d characters):" % len(results_chat))
     print(results_chat)
-    return 0 if results and results["status"] == "finished" else 1
+    race_finished = results and results["status"] == "finished"
+    return 0 if race_finished and run_commands(mock, g, call) else 1
+
+
+def last_message(mock, event_name, player_id):
+    for message in reversed(list(mock.sent.values())):
+        if message.eventName == event_name and message.playerId == player_id:
+            return json.loads(message.data)
+    return None
+
+
+def run_commands(mock, g, call):
+    """Commands from the console and from another plugin (B-4)."""
+    track = {"missionId": "vracer_bajasur/timeTrial/001-Circuito", "level": "vracer_bajasur",
+             "name": "Circuito Bronco Short Course", "closed": True, "pathnodeCount": 3, "defaultLaps": 2}
+    call("vracerMP_requestLobbies", 1, {"tracks": [track]})
+    print("welcome:", last_message(mock, "vracerMP_welcome", 1))
+    console = g[mock.events["onConsoleInput"]]
+    print("console 'status' (not ours):", console("status"))
+    for command in ["vracer tracks", "vracer create --track bronco --laps 3 --players player1, Nobody",
+                    "vracer add --all", "vracer races", "vracer cancel"]:
+        print(">", command)
+        print(console(command))
+    plugin_command = g[mock.events["vracerMP_command"]]
+    reply = json.loads(plugin_command("create --track 001-circuito --dnf 0", "tablet-1"))
+    print("plugin reply:", reply)
+    published = [event.eventName for event in mock.pluginEvents.values()]
+    print("plugin events:", sorted(set(published)))
+    return reply["ok"] and "vracerMP_commandReply" in published and "vracerMP_raceResults" in published
 
 
 if __name__ == "__main__":

@@ -115,6 +115,18 @@ t.test("installs the four apps into the current layout once", function()
   t.assertEquals(stubs.addedApps[1], "vracermpRacePanel")
 end)
 
+t.test("asks for the races with the map's tracks until the server welcomes us", function()
+  runFrames(1)
+  local request = lastServerMessage("vracerMP_requestLobbies")
+  t.assertEquals(request.tracks[1].missionId, "testlevel/timeTrial/001-Test")
+  local requestCount = #stubs.serverMessages
+  runFrames(25) -- 2.5 s without an answer: asked again
+  t.assertEquals(#stubs.serverMessages, requestCount + 1)
+  serverSends("vracerMP_welcome", { protocolVersion = 1 })
+  runFrames(30)
+  t.assertEquals(#stubs.serverMessages, requestCount + 1, "no more requests once welcomed")
+end)
+
 t.test("the start area is marked while registration is possible", function()
   controller:render(0.016, 0.016)
   t.assertEquals(#controller.startAreaMarkers.shownTracks, 1)
