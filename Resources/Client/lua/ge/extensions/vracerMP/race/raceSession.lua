@@ -3,8 +3,8 @@
 --   gridding -> countdown -> racing -> finished
 --
 -- It places the car, runs BeamNG's race engine and markers from GO, turns crossings into
--- messages for the server, and keeps what the HUD shows. It never decides positions:
--- those come from the server (NFR-1).
+-- messages for the server, and keeps what the HUD shows. It never decides positions or
+-- penalties: those come from the server (NFR-1).
 
 local RaceEngine = require("vracerMP/race/raceEngineAdapter")
 local PathnodeMarkers = require("vracerMP/race/markerAdapter")
@@ -43,6 +43,7 @@ function RaceSession.new(track, startInfo, vehicleId)
   self.aheadGapMs = nil
   self.behindGapMs = nil
   self.finishInfo = nil
+  self.penaltyMs = 0
   return self
 end
 
@@ -137,6 +138,11 @@ function RaceSession:applyGap(gap)
   end
 end
 
+-- penalty payload: the server gave us a time penalty.
+function RaceSession:applyPenalty(penalty)
+  self.penaltyMs = penalty.totalPenaltyMs or self.penaltyMs
+end
+
 -- racerFinished payload: we finished or became DNF.
 function RaceSession:applyFinish(finishInfo)
   self.finishInfo = finishInfo
@@ -181,6 +187,7 @@ function RaceSession:getHudData()
     pathnodeCount = self.track.pathnodeCount,
     aheadGapMs = self.aheadGapMs,
     behindGapMs = self.behindGapMs,
+    penaltyMs = self.penaltyMs,
     finishInfo = self.finishInfo,
   }
 end

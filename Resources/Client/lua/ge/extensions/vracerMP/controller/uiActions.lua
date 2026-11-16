@@ -32,21 +32,28 @@ local function startRace(controller)
   if lobby then clientNetwork.send(toServer.startRace, { raceId = lobby.raceId }) end
 end
 
+-- Steps a race setting, never below `lowest`; nothing is sent when it would not change.
 -- The server validates the new value and broadcasts the updated lobby.
-local function sendSettingChange(controller, settingName, delta)
+local function sendSettingChange(controller, settingName, delta, lowest)
   local lobby = controller.panelLobby
   if not lobby or type(delta) ~= "number" then return end
   local current = lobby[settingName]
   if type(current) ~= "number" then return end
-  clientNetwork.send(toServer.configure, { raceId = lobby.raceId, [settingName] = current + delta })
+  local newValue = math.max(current + delta, lowest)
+  if newValue == current then return end
+  clientNetwork.send(toServer.configure, { raceId = lobby.raceId, [settingName] = newValue })
 end
+
+local LOWEST_LAPS = 1
+local NO_DNF_LIMIT = 0 -- B-5
 
 local function changeLaps(controller, action)
-  sendSettingChange(controller, "laps", action.delta)
+  sendSettingChange(controller, "laps", action.delta, LOWEST_LAPS)
 end
 
+-- Stepping below the lowest time reaches 0 = no limit (B-5).
 local function changeDnfTimeout(controller, action)
-  sendSettingChange(controller, "dnfTimeoutSeconds", action.delta)
+  sendSettingChange(controller, "dnfTimeoutSeconds", action.delta, NO_DNF_LIMIT)
 end
 
 local function closeResults(controller)

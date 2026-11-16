@@ -100,12 +100,14 @@ function Race:getElapsedRaceMs()
   return self.clock:getNowMs() - self.startedAtMs
 end
 
+-- Live order uses raw times; once the race is over, finished racers are ordered by total time
+-- including penalties (B-3).
 function Race:getOrderedRacers()
-  return standings.getOrderedRacers(self.racers)
+  return standings.getOrderedRacers(self.racers, self:isOver())
 end
 
 function Race:updatePositions()
-  return standings.assignPositions(self.racers)
+  return standings.assignPositions(self.racers, self:isOver())
 end
 
 function Race:getWinner()
@@ -262,13 +264,19 @@ local function isTimePlausible(self, raceTimeMs)
 end
 
 local function startDnfTimerIfFirstFinisher(self)
-  if self.dnfDeadlineMs then return end
+  if self.dnfDeadlineMs or not self.settings:hasDnfLimit() then return end
   self.dnfDeadlineMs = self.clock:getNowMs() + self.settings:getDnfTimeoutMs()
+end
+
+local function getLapTimeIfCompleted(racer, lapsBefore)
+  if racer:getLapsCompleted() == lapsBefore then return nil end
+  return racer.lapTimesMs[#racer.lapTimesMs]
 end
 
 -- crossing = { crossingNumber, raceTimeMs, lapCompleted }
 -- Returns an outcome table, or nil and a reason when the crossing is ignored:
---   { racer, gap = { aheadPlayerId, gapMs }?, finished = bool, isPlausible = bool, serverElapsedMs }
+--   { racer, gap = { aheadPlayerId, gapMs }?, finished = bool, isPlausible = bool, serverElapsedMs,
+--     lapTimeMs? (when a lap was completed, penalties included) }
 function Race:recordCrossing(playerId, crossing)
   if self.state ~= raceState.running then return nil, "race is not running" end
   local racer = self:getRacer(playerId)
@@ -278,6 +286,7 @@ function Race:recordCrossing(playerId, crossing)
   end
 
   local isPlausible, serverElapsedMs = isTimePlausible(self, crossing.raceTimeMs)
+  local lapsBefore = racer:getLapsCompleted()
   local finished = racer:recordCrossing(crossing.raceTimeMs, crossing.lapCompleted, self.settings.laps)
   local gap = self.gapTracker:recordCrossing(playerId, racer.crossingCount, crossing.raceTimeMs)
   if finished then startDnfTimerIfFirstFinisher(self) end
@@ -289,7 +298,25 @@ function Race:recordCrossing(playerId, crossing)
     finished = finished,
     isPlausible = isPlausible,
     serverElapsedMs = serverElapsedMs,
+    lapTimeMs = getLapTimeIfCompleted(racer, lapsBefore),
   }
+end
+
+-- Gives a racer a time penalty: it counts for the lap they are driving and for their total
+-- time, and final positions include it. penalty = { reason, penaltyMs, details? } (reason from
+-- raceStates.penaltyReason). Returns the stored penalty, or nil when the player is not racing.
+function Race:givePenalty(playerId, penalty)
+  local racer = self:getRacer(playerId)
+  if not racer or not racer:isRacing() then return nil end
+  local storedPenalty = {
+    raceTimeMs = self:getElapsedRaceMs(),
+    lap = racer:getCurrentLap(),
+    reason = penalty.reason,
+    penaltyMs = penalty.penaltyMs,
+    details = penalty.details or {},
+  }
+  racer:addPenalty(storedPenalty)
+  return storedPenalty
 end
 
 function Race:markDnf(playerId, reason)
@@ -392,7 +419,7 @@ end
 
 local function serializeRacers(self)
   local winner = self:getWinner()
-  local winnerTimeMs = winner and winner.finishTimeMs or nil
+  local winnerTimeMs = winner and winner:getTotalTimeMs() or nil
   local serialized = {}
   for index, racer in ipairs(self:getOrderedRacers()) do
     serialized[index] = racer:serialize(winnerTimeMs)

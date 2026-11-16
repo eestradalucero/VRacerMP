@@ -32,9 +32,14 @@ to the server console. The plugin writes no files.
 ## Racing
 1. Start areas where you can register show BeamNG's mission marker. Drive into one: the
    registration panel opens.
-2. Press **Register**. The owner can change laps and the DNF timeout, then press **Start race**.
-3. Wait for the countdown, race, and see the results at the end.
-4. To drop out, press **Retire** on the race panel and confirm. You are DNF and stay in the
+2. Press **Register**. The owner can change laps and the DNF timeout (0 = no limit), then press
+   **Start race**.
+3. Wait for the countdown, race, and see the results at the end. They close after 30 s, with
+   their Close button, or with a control you can bind in Options → Controls → VRacerMP
+   ("Close VRacerMP results", handy on a wheel button).
+4. Each track keeps a server lap record since the server started, shown in the lobby panel and
+   announced in chat when broken.
+5. To drop out, press **Retire** on the race panel and confirm. You are DNF and stay in the
    results, and you can register for another race straight away. If every racer drops out, the
    race ends (before GO it is simply cancelled) and the track is free again.
 
@@ -55,7 +60,7 @@ so remove or update them after changing a track; every racer must use the same r
 
 ## Development
 - **Docs:** [requirements](docs/requirements.md), [architecture](docs/architecture.md),
-  [protocol](docs/protocol.md).
+  [protocol](docs/protocol.md), [backlog](docs/backlog.md) (what's pending and done).
 - **Build:** `powershell -ExecutionPolicy Bypass -File tools/build.ps1` writes
   `export/Resources`. Add `-ServerPath "<your BeamMP server folder>"` to install it there.
 - **Tests:** `python -m pip install --user lupa`, then `python tools/runTests.py`

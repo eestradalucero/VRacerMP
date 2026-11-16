@@ -75,7 +75,7 @@ def main():
     print("registered events:", sorted(mock.events.keys()))
     track = {"missionId": "vracer_bajasur/timeTrial/001-Circuito", "level": "vracer_bajasur",
              "name": "Circuito Bronco Short Course", "closed": True, "pathnodeCount": 3, "defaultLaps": 2}
-    call("vracerMP_register", 0, {"track": track, "vehicle": {"model": "etk800", "config": "856_m"}})
+    call("vracerMP_register", 0, {"track": track, "vehicle": {"model": "etk800"}})
     race_id = last("vracerMP_lobbyUpdated")["raceId"]
     g.handleChatMessage(0, "Player0", "/vracer fake 30")
     print("chat reply:", list(mock.chat.values())[-1])
@@ -92,15 +92,18 @@ def main():
                                              "raceTimeMs": crossing * 9000, "lapCompleted": crossing == 3})
         print("gap:", last("vracerMP_gap", 0), "| standings P:",
               [e["id"] for e in last("vracerMP_standings", 0)["entries"]])
+    print("lap record:", last("vracerMP_lapRecord"))
     print("finished:", last("vracerMP_racerFinished", 0))
     advance(35)
     results = last("vracerMP_raceResults", 0)
     print("results status:", results and results["status"])
     for racer in (results or {}).get("racers", []):
         stats = racer["raceStats"]
-        print("  P%s %s %s laps=%s best=%s" % (racer["position"], racer["name"], stats["totalTimeReadable"],
-                                               stats["lapTimesReadable"], stats["bestLap"]))
+        print("  P%s %s raw=%s penalty=%s total=%s laps=%s" % (racer["position"], racer["name"], stats["rawTime"],
+              stats["penaltyTime"], stats["totalTimeReadable"], stats["lapTimesReadable"]))
     chat_messages = list(mock.chat.values())
+    for message in chat_messages[:-1]:
+        print("chat:", message)
     results_chat = chat_messages[-1] if chat_messages else ""
     print("results chat message (%d characters):" % len(results_chat))
     print(results_chat)

@@ -1,6 +1,7 @@
 -- VRacerMP client: builds what the lobby app shows (REG-1 .. REG-6). Pure.
 
 local LobbyStore = require("vracerMP/lobby/lobbyStore")
+local timeFormat = require("vracerMP/shared/timeFormat")
 
 local M = {}
 
@@ -25,8 +26,23 @@ local function getStatusText(lobby)
   return "Waiting for the owner to start"
 end
 
+-- 0 means no limit (B-5).
+local function getDnfTimeoutText(seconds)
+  if seconds == nil then return nil end
+  if seconds == 0 then return "No limit" end
+  return tostring(seconds) .. " s"
+end
+
+-- "Server record: 1:24.120 - Ana (etk800)" (B-8), or nil when the track has none yet.
+local function getServerRecordText(record)
+  if not record then return nil end
+  return string.format("Server record: %s - %s (%s)", timeFormat.formatHudTime(record.lapTimeMs),
+    tostring(record.name), tostring(record.model))
+end
+
 -- track: TrackInfo of the start area (or of our race). lobby: its lobby, or nil.
-local function build(track, lobby, myPlayerId)
+-- lapRecord: the track's server lap record, or nil.
+local function build(track, lobby, myPlayerId, lapRecord)
   if not track then return HIDDEN end
   local isRegistrationOpen = lobby == nil or lobby.state == "registering"
   local isRegistered = LobbyStore.isPlayerRegistered(lobby, myPlayerId)
@@ -43,7 +59,8 @@ local function build(track, lobby, myPlayerId)
     canEditSettings = isRegistrationOpen and isOwner,
     isClosedTrack = track.closed,
     laps = lobby and lobby.laps or track.defaultLaps,
-    dnfTimeoutSeconds = lobby and lobby.dnfTimeoutSeconds or nil,
+    dnfTimeoutText = getDnfTimeoutText(lobby and lobby.dnfTimeoutSeconds),
+    serverRecordText = getServerRecordText(lapRecord),
     racers = buildRacerRows(lobby or {}, myPlayerId),
   }
 end

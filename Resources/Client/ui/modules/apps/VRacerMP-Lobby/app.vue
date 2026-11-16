@@ -1,5 +1,6 @@
 <!--
   VRacerMP lobby (REG-1 .. REG-6): shown at a track's start area or while registered.
+  Also shows the track's server lap record (B-8).
   Lua sends what to show and what the player may do in the "VRacerMPLobby" event;
   buttons are sent back as actions to vracerMP_main.handleUiAction.
 -->
@@ -7,6 +8,7 @@
   <div v-if="view.visible" class="vracermp-lobby">
     <div class="track-name">{{ view.trackName }}</div>
     <div class="status">{{ view.statusText }}</div>
+    <div v-if="view.serverRecordText" class="server-record">{{ view.serverRecordText }}</div>
 
     <div v-if="view.hasRace" class="settings">
       <div class="setting">
@@ -22,10 +24,10 @@
         <span class="setting-label">DNF after winner</span>
         <template v-if="view.canEditSettings">
           <BngButton accent="outlined" class="step" @click="sendAction('changeDnfTimeout', { delta: -30 })">-</BngButton>
-          <span class="setting-value">{{ view.dnfTimeoutSeconds }} s</span>
+          <span class="setting-value">{{ view.dnfTimeoutText }}</span>
           <BngButton accent="outlined" class="step" @click="sendAction('changeDnfTimeout', { delta: 30 })">+</BngButton>
         </template>
-        <span v-else class="setting-value">{{ view.dnfTimeoutSeconds }} s</span>
+        <span v-else class="setting-value">{{ view.dnfTimeoutText }}</span>
       </div>
     </div>
 
@@ -93,6 +95,12 @@ onMounted(() => sendAction("refresh"))
   color: var(--bng-cool-gray-300);
 }
 
+.server-record {
+  font-size: 0.9em;
+  color: var(--bng-orange-300);
+  font-variant-numeric: tabular-nums;
+}
+
 .settings {
   display: flex;
   flex-direction: column;
@@ -111,7 +119,7 @@ onMounted(() => sendAction("refresh"))
 }
 
 .setting-value {
-  min-width: 3.5em;
+  min-width: 4.5em;
   text-align: center;
   font-weight: 700;
   font-variant-numeric: tabular-nums;

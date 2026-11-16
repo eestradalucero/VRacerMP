@@ -1,7 +1,8 @@
 -- VRacerMP server: race positions. Pure functions, no state.
 --
 -- Order:
---   1. finished racers, by finish time;
+--   1. finished racers, by finish time (live: raw time; final results: total time including
+--      penalties);
 --   2. racers still racing, by progress (pathnode crossings), then by who got there first;
 --   3. DNF racers, by progress.
 -- Ties fall back to grid slot / registration order so the order is stable.
@@ -34,26 +35,35 @@ local function compareByProgress(a, b)
   return compareByTieBreak(a, b)
 end
 
-local function compareRacers(a, b)
-  local groupA, groupB = getGroup(a), getGroup(b)
-  if groupA ~= groupB then return groupA < groupB end
-  if groupA == GROUP_FINISHED and a.finishTimeMs ~= b.finishTimeMs then
-    return a.finishTimeMs < b.finishTimeMs
+local function getFinishTimeMs(racer, includePenalties)
+  if includePenalties then return racer:getTotalTimeMs() end
+  return racer.finishTimeMs
+end
+
+local function newComparer(includePenalties)
+  return function(a, b)
+    local groupA, groupB = getGroup(a), getGroup(b)
+    if groupA ~= groupB then return groupA < groupB end
+    if groupA == GROUP_FINISHED then
+      local timeA, timeB = getFinishTimeMs(a, includePenalties), getFinishTimeMs(b, includePenalties)
+      if timeA ~= timeB then return timeA < timeB end
+    end
+    return compareByProgress(a, b)
   end
-  return compareByProgress(a, b)
 end
 
 -- Returns a new list of racers in race order. Does not modify the input.
-local function getOrderedRacers(racers)
+-- includePenalties: order finished racers by total time (final results) instead of raw time.
+local function getOrderedRacers(racers, includePenalties)
   local ordered = {}
   for index, racer in ipairs(racers) do ordered[index] = racer end
-  table.sort(ordered, compareRacers)
+  table.sort(ordered, newComparer(includePenalties == true))
   return ordered
 end
 
 -- Sorts and writes `racer.position` (1-based). Returns the ordered list.
-local function assignPositions(racers)
-  local ordered = getOrderedRacers(racers)
+local function assignPositions(racers, includePenalties)
+  local ordered = getOrderedRacers(racers, includePenalties)
   for position, racer in ipairs(ordered) do
     racer.position = position
   end

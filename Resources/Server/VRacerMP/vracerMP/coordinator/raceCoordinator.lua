@@ -3,7 +3,7 @@
 -- It is the only place that combines the race rules (races/*) with the edges
 -- (network, player directory, results announcement). Dependencies are injected, so tests
 -- can pass fakes:
---   { registry, network, playerDirectory, resultsAnnouncer }
+--   { registry, network, playerDirectory, resultsAnnouncer, lapRecords }
 
 local protocol = require("vracerMP/shared/protocol")
 local raceStates = require("vracerMP/shared/raceStates")
@@ -12,6 +12,7 @@ local Race = require("vracerMP/races/race")
 local FakeRacer = require("vracerMP/testing/fakeRacer")
 local messageBuilder = require("vracerMP/coordinator/messageBuilder")
 local log = require("vracerMP/util/serverLog").log
+local timeFormat = require("vracerMP/shared/timeFormat")
 
 local logTag = "vracerMP.coordinator"
 local toClient = protocol.toClient
@@ -27,6 +28,7 @@ function RaceCoordinator.new(dependencies)
   self.network = dependencies.network
   self.playerDirectory = dependencies.playerDirectory
   self.resultsAnnouncer = dependencies.resultsAnnouncer
+  self.lapRecords = dependencies.lapRecords
   self.fakeRacersByRaceId = {}
   self.lastFakePlayerId = 0
   return self
@@ -123,9 +125,13 @@ local function findOrCreateRaceForTrack(self, track)
   return race
 end
 
+-- A player who just loaded the level gets every race and every track's lap record.
 function RaceCoordinator:handleRequestLobbies(playerId)
   for _, race in ipairs(self.registry:getAllRaces()) do
     self.network.sendToPlayer(playerId, toClient.lobbyUpdated, messageBuilder.buildLobby(race))
+  end
+  for _, record in ipairs(self.lapRecords:getAllTrackRecords()) do
+    self.network.sendToPlayer(playerId, toClient.lapRecord, messageBuilder.buildLapRecord(record))
   end
 end
 
@@ -252,6 +258,26 @@ local function readCrossing(payload)
   }
 end
 
+-- New server lap record (B-8): everyone's lobby panel shows it, and the chat announces it.
+local function announceLapRecord(self, record)
+  self.network.broadcast(toClient.lapRecord, messageBuilder.buildLapRecord(record))
+  self.network.broadcastChat(string.format("New server lap record on %s: %s by %s (%s)",
+    record.trackName, timeFormat.formatHudTime(record.lapTimeMs), record.name, record.model))
+end
+
+-- Fake racers are for testing and never set records.
+local function recordLapTime(self, race, racer, lapTimeMs)
+  if not lapTimeMs or racer.isFake then return end
+  local isNewRecord = self.lapRecords:recordLap({
+    missionId = race.track.missionId,
+    trackName = race.track.name,
+    lapTimeMs = lapTimeMs,
+    name = racer.name,
+    model = racer.vehicle.model,
+  })
+  if isNewRecord then announceLapRecord(self, self.lapRecords:getTrackRecord(race.track.missionId)) end
+end
+
 local function applyCrossing(self, race, playerId, crossing)
   local outcome, ignoredReason = race:recordCrossing(playerId, crossing)
   if not outcome then
@@ -259,6 +285,7 @@ local function applyCrossing(self, race, playerId, crossing)
     return
   end
   warnIfImplausible(race, playerId, crossing, outcome)
+  recordLapTime(self, race, outcome.racer, outcome.lapTimeMs)
   sendGaps(self, race, playerId, outcome.gap)
   if outcome.finished then
     concludeRacers(self, race, { outcome.racer })
@@ -273,6 +300,22 @@ function RaceCoordinator:handlePathnodeReached(playerId, payload)
   local crossing = readCrossing(payload)
   if not crossing then return end
   applyCrossing(self, race, playerId, crossing)
+end
+
+-- Penalties ------------------------------------------------------------------
+
+-- Gives a racer a time penalty and tells them; standings carry everyone's penalty time.
+-- penalty = { reason, penaltyMs, details? } (see Race:givePenalty). No penalty type uses this
+-- yet; planned: speed zones, vehicle repairs, ...
+function RaceCoordinator:givePenalty(playerId, penalty)
+  local race = self.registry:findRaceOfPlayer(playerId)
+  if not race then return nil end
+  local storedPenalty = race:givePenalty(playerId, penalty)
+  if not storedPenalty then return nil end
+  local racer = race:getRacer(playerId)
+  self.network.sendToPlayer(playerId, toClient.penalty, messageBuilder.buildPenalty(race, racer, storedPenalty))
+  sendStandings(self, race)
+  return storedPenalty
 end
 
 function RaceCoordinator:handleVehicleReset(playerId)

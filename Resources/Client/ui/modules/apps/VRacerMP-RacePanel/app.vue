@@ -27,6 +27,8 @@
       <span v-if="view.behindGap" class="gap gap-behind">{{ view.behindGap }}</span>
     </div>
 
+    <div v-if="view.penaltyText" class="penalty">{{ view.penaltyText }}</div>
+
     <div v-if="view.finishText" class="finish">{{ view.finishText }}</div>
 
     <div v-if="isConfirmingRetire" class="retire-confirm">
@@ -173,6 +175,12 @@ onUnmounted(() => clearTimeout(confirmTimer))
 
 .gap-behind {
   color: var(--bng-add-green-400, #5cd65c);
+}
+
+.penalty {
+  font-weight: 700;
+  color: var(--bng-add-red-400, #ff5c5c);
+  font-variant-numeric: tabular-nums;
 }
 
 .finish {

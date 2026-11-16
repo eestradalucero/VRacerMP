@@ -16,25 +16,26 @@ local SAMPLE_LOBBY = {
 
 local SAMPLE_HUD = {
   position = 2, racerCount = 6, currentLap = 2, laps = 3, raceTimeMs = 104321, bestLapMs = 51234,
-  pathnodesPassed = 7, pathnodeCount = 19, aheadGapMs = 412, behindGapMs = 1730,
+  pathnodesPassed = 7, pathnodeCount = 19, aheadGapMs = 412, behindGapMs = 1730, penaltyMs = 40000,
 }
 
 local SAMPLE_RESULTS = {
   laps = 3,
   raceTrack = { name = "Sample Circuit" },
   racers = {
-    { position = 1, name = "Racer Two", status = "finished", raceStats = { totalTime = 154210, bestLapTime = 50980, gapToWinner = 0 } },
-    { position = 2, name = "You", status = "finished", raceStats = { totalTime = 155002, bestLapTime = 51234, gapToWinner = 792 } },
+    { position = 1, name = "Racer Two", status = "finished", raceStats = { rawTime = 154210, penaltyTime = 0, totalTime = 154210, bestLapTime = 50980, gapToWinner = 0 } },
+    { position = 2, id = 1, name = "You", status = "finished", raceStats = { rawTime = 135002, penaltyTime = 20000, totalTime = 155002, bestLapTime = 51234, gapToWinner = 792 } },
     { position = 3, name = "Racer Three", status = "dnf", dnfReason = "timeout", raceStats = { bestLapTime = 53100 } },
   },
 }
 
 local function build()
   return {
-    lobby = lobbyView.build(SAMPLE_TRACK, SAMPLE_LOBBY, 1),
+    lobby = lobbyView.build(SAMPLE_TRACK, SAMPLE_LOBBY, 1,
+      { lapTimeMs = 50980, name = "Racer Two", model = "etk800" }),
     race = raceView.build(SAMPLE_HUD),
     countdown = { visible = true, text = "3", animationKey = 0, isGo = false },
-    results = resultsView.build(SAMPLE_RESULTS),
+    results = resultsView.build(SAMPLE_RESULTS, 1, 30),
   }
 end
 

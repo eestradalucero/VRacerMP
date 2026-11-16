@@ -36,6 +36,20 @@ t.test("owner may edit and start; guest may only unregister", function()
   t.assertTrue(guestView.racers[2].isMe)
 end)
 
+t.test("DNF time 0 shows as no limit", function()
+  local lobby = newLobby()
+  t.assertEquals(lobbyView.build(TRACK, lobby, 4).dnfTimeoutText, "90 s")
+  lobby.dnfTimeoutSeconds = 0
+  t.assertEquals(lobbyView.build(TRACK, lobby, 4).dnfTimeoutText, "No limit")
+end)
+
+t.test("lobby shows the server record", function()
+  local lobby = newLobby()
+  local view = lobbyView.build(TRACK, lobby, 4, { lapTimeMs = 84120, name = "Ana", model = "etk800" })
+  t.assertEquals(view.serverRecordText, "Server record: 1:24.120 - Ana (etk800)")
+  t.assertNil(lobbyView.build(TRACK, lobby, 4).serverRecordText, "no record yet")
+end)
+
 t.test("a running race closes registration", function()
   local view = lobbyView.build(TRACK, newLobby("running"), 99)
   t.assertEquals(view.canRegister, false)
@@ -55,6 +69,9 @@ t.test("race view formats every value", function()
   t.assertEquals(view.aheadGap, "-0:00.214")
   t.assertNil(view.behindGap)
   t.assertTrue(view.canRetire)
+  t.assertNil(view.penaltyText, "no penalty, no text")
+  t.assertEquals(raceView.build({ currentLap = 1, laps = 1, pathnodesPassed = 0, pathnodeCount = 4,
+    penaltyMs = 85000 }).penaltyText, "Penalty +1:25.000")
 end)
 
 t.test("race view shows finish and DNF text", function()
@@ -81,6 +98,28 @@ t.test("results view builds rows from the results JSON", function()
   t.assertEquals(view.rows[2].gapToWinner, "+0:01.500")
   t.assertEquals(view.rows[3].totalTime, "-")
   t.assertEquals(view.rows[3].status, "DNF disconnected")
+  t.assertNil(view.closeText)
+end)
+
+t.test("results show raw time, penalties and total time", function()
+  local view = resultsView.build({ laps = 1, raceTrack = { name = "C" }, racers = {
+    { position = 1, id = 3, name = "A", status = "finished", raceStats = { rawTime = 60000, penaltyTime = 0, totalTime = 60000 } },
+    { position = 2, id = 7, name = "B", status = "finished", raceStats = { rawTime = 30000, penaltyTime = 148000, totalTime = 178000 } },
+  } }, 7)
+  t.assertEquals(view.rows[1].penaltyTime, "")
+  t.assertEquals(view.rows[2].rawTime, "0:30.000")
+  t.assertEquals(view.rows[2].penaltyTime, "+2:28.000")
+  t.assertEquals(view.rows[2].totalTime, "2:58.000")
+end)
+
+t.test("results highlight our own row and show when they close", function()
+  local view = resultsView.build({ laps = 1, raceTrack = { name = "C" }, racers = {
+    { position = 1, id = 3, name = "A", status = "finished", raceStats = { totalTime = 60000 } },
+    { position = 2, id = 7, name = "Me", status = "finished", raceStats = { totalTime = 61000 } },
+  } }, 7, 29.2)
+  t.assertEquals(view.rows[1].isMe, false)
+  t.assertTrue(view.rows[2].isMe)
+  t.assertEquals(view.closeText, "Closes in 30 s")
 end)
 
 t.test("sample views show every app", function()

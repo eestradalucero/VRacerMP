@@ -13,6 +13,7 @@ local log = require("vracerMP/util/serverLog").log
 local ServerClock = require("vracerMP/util/serverClock")
 local RaceRegistry = require("vracerMP/races/raceRegistry")
 local ResultsAnnouncer = require("vracerMP/results/resultsAnnouncer")
+local LapRecords = require("vracerMP/records/lapRecords")
 local RaceCoordinator = require("vracerMP/coordinator/raceCoordinator")
 local chatCommands = require("vracerMP/coordinator/chatCommands")
 local serverNetwork = require("vracerMP/network/serverNetwork")
@@ -28,6 +29,7 @@ local coordinator = RaceCoordinator.new({
   network = serverNetwork,
   playerDirectory = playerDirectory,
   resultsAnnouncer = ResultsAnnouncer.new(serverNetwork),
+  lapRecords = LapRecords.new(),
 })
 
 -- Decodes the payload and calls the coordinator; invalid payloads are dropped.

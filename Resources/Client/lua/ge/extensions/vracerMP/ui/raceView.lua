@@ -16,6 +16,12 @@ local function getFinishText(finishInfo)
   return string.format("Finished P%d  %s", finishInfo.position or 0, timeFormat.formatHudTime(finishInfo.totalTimeMs))
 end
 
+-- "Penalty +1:25.000" once the server gave us penalties.
+local function getPenaltyText(penaltyMs)
+  if not penaltyMs or penaltyMs <= 0 then return nil end
+  return "Penalty +" .. timeFormat.formatHudTime(penaltyMs)
+end
+
 local function formatGapOrNil(gapMs, isAhead)
   if not gapMs then return nil end
   return timeFormat.formatGap(gapMs, isAhead)
@@ -34,6 +40,7 @@ local function build(hud)
     aheadGap = formatGapOrNil(hud.aheadGapMs, true),
     behindGap = formatGapOrNil(hud.behindGapMs, false),
     finishText = getFinishText(hud.finishInfo),
+    penaltyText = getPenaltyText(hud.penaltyMs),
     canRetire = hud.finishInfo == nil and hud.state ~= FINISHED_STATE,
   }
 end

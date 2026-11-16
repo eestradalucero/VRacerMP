@@ -64,6 +64,7 @@ local function buildStandings(race)
       position = racer.position or index,
       lapsCompleted = racer:getLapsCompleted(),
       crossings = racer.crossingCount,
+      penaltyTime = racer.penaltyTimeMs,
       status = racer.status,
     }
   end
@@ -91,6 +92,25 @@ local function buildNotice(message)
   return { message = message }
 end
 
+local function buildPenalty(race, racer, penalty)
+  return {
+    raceId = race.raceId,
+    reason = penalty.reason,
+    penaltyMs = penalty.penaltyMs,
+    totalPenaltyMs = racer.penaltyTimeMs,
+  }
+end
+
+local function buildLapRecord(record)
+  return {
+    missionId = record.missionId,
+    trackName = record.trackName,
+    lapTimeMs = record.lapTimeMs,
+    name = record.name,
+    model = record.model,
+  }
+end
+
 M.buildLobby = buildLobby
 M.buildRaceRemoved = buildRaceRemoved
 M.buildRaceStarting = buildRaceStarting
@@ -101,5 +121,7 @@ M.buildStandings = buildStandings
 M.buildRacerFinished = buildRacerFinished
 M.buildRaceResults = buildRaceResults
 M.buildNotice = buildNotice
+M.buildPenalty = buildPenalty
+M.buildLapRecord = buildLapRecord
 
 return M

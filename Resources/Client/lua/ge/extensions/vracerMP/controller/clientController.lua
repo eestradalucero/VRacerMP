@@ -9,6 +9,8 @@ local startAreaWatcher = require("vracerMP/tracks/startAreaWatcher")
 local startAreaVisibility = require("vracerMP/tracks/startAreaVisibility")
 local StartAreaMarkers = require("vracerMP/tracks/startAreaMarkers")
 local LobbyStore = require("vracerMP/lobby/lobbyStore")
+local LapRecordStore = require("vracerMP/lobby/lapRecordStore")
+local timeFormat = require("vracerMP/shared/timeFormat")
 local RaceSession = require("vracerMP/race/raceSession")
 local playerVehicle = require("vracerMP/race/playerVehicle")
 local Countdown = require("vracerMP/ui/countdown")
@@ -30,6 +32,7 @@ local toClient = protocol.toClient
 local START_AREA_CHECK_SECONDS = 0.25
 local LAYOUT_CHECK_SECONDS = 2
 local NOTICE_SECONDS = 5
+local RESULTS_AUTO_CLOSE_SECONDS = 30 -- B-6
 
 local function showNotice(text)
   ui_message(text, NOTICE_SECONDS, "vracerMP")
@@ -39,6 +42,7 @@ function ClientController.new()
   local self = setmetatable({}, ClientController)
   self.tracks = {}
   self.lobbyStore = LobbyStore.new()
+  self.lapRecordStore = LapRecordStore.new()
   self.session = nil
   self.results = nil
   self.isListening = false
@@ -59,6 +63,7 @@ end
 function ClientController:loadLevel()
   self.tracks = trackCatalog.loadTracksForLevel(getCurrentLevelIdentifier())
   self.lobbyStore:clear()
+  self.lapRecordStore:clear()
   self.levelLoaded = true
   if self.isListening then clientNetwork.send(toServer.requestLobbies, {}) end
 end
@@ -145,10 +150,25 @@ local function handleRaceResults(self, results)
   if isRacingNow(self) and not isAboutMySession(self, results) then return end -- a race we left earlier
   endSession(self)
   self.results = results
+  self.secondsUntilResultsClose = RESULTS_AUTO_CLOSE_SECONDS
 end
 
 local function handleNotice(self, payload)
   showNotice("VRacerMP: " .. tostring(payload.message))
+end
+
+local function getPenaltyNotice(penalty)
+  return string.format("VRacerMP: +%s penalty (%s)", timeFormat.formatHudTime(penalty.penaltyMs), tostring(penalty.reason))
+end
+
+local function handlePenalty(self, payload)
+  if not isAboutMySession(self, payload) then return end
+  self.session:applyPenalty(payload)
+  showNotice(getPenaltyNotice(payload))
+end
+
+local function handleLapRecord(self, record)
+  self.lapRecordStore:saveRecord(record)
 end
 
 local messageHandlers = {
@@ -162,6 +182,8 @@ local messageHandlers = {
   [toClient.racerFinished] = handleRacerFinished,
   [toClient.raceResults] = handleRaceResults,
   [toClient.notice] = handleNotice,
+  [toClient.penalty] = handlePenalty,
+  [toClient.lapRecord] = handleLapRecord,
 }
 
 -- BeamMP's networking functions may appear after our extension loads, so this is retried
@@ -183,6 +205,7 @@ end
 
 function ClientController:closeResults()
   self.results = nil
+  self.secondsUntilResultsClose = nil
 end
 
 function ClientController:resendUi()
@@ -207,10 +230,12 @@ local function buildViews(self)
   local myPlayerId = clientNetwork.getMyPlayerId()
   refreshPanelTrackAndLobby(self, myPlayerId)
   return {
-    lobby = lobbyView.build(self.panelTrack, self.panelLobby, myPlayerId),
+    lobby = lobbyView.build(self.panelTrack, self.panelLobby, myPlayerId,
+      self.panelTrack and self.lapRecordStore:findRecord(self.panelTrack.missionId)),
     race = self.session and raceView.build(self.session:getHudData()) or raceView.HIDDEN,
     countdown = self.countdown:getView(),
-    results = self.results and resultsView.build(self.results) or resultsView.HIDDEN,
+    results = self.results and resultsView.build(self.results, myPlayerId, self.secondsUntilResultsClose)
+      or resultsView.HIDDEN,
   }
 end
 
@@ -221,8 +246,15 @@ local function installAppsWhenDue(self, dtReal)
   layoutInstaller.installIntoCurrentLayout()
 end
 
+local function closeResultsWhenDue(self, dtReal)
+  if not self.secondsUntilResultsClose then return end
+  self.secondsUntilResultsClose = self.secondsUntilResultsClose - dtReal
+  if self.secondsUntilResultsClose <= 0 then self:closeResults() end
+end
+
 local function updateUi(self, dtReal)
   installAppsWhenDue(self, dtReal)
+  closeResultsWhenDue(self, dtReal)
   self.countdown:update(dtReal)
   self.presenter:present(buildViews(self), dtReal)
 end

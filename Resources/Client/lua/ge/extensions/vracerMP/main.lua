@@ -2,6 +2,7 @@
 -- forwards BeamNG game hooks and UI app actions to the client controller.
 
 local ClientController = require("vracerMP/controller/clientController")
+local controlsSection = require("vracerMP/ui/controlsSection")
 
 local M = {}
 
@@ -13,6 +14,7 @@ local function isLevelLoaded()
 end
 
 local function onExtensionLoaded()
+  controlsSection.addSection()
   controller = ClientController.new()
   if isLevelLoaded() then controller:loadLevel() end
   log('I', logTag, "VRacerMP client loaded")

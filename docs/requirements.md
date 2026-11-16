@@ -87,6 +87,7 @@ and the race results sent to the server chat as JSON.
 | TIME-4 | Times are stored and sent as integer **milliseconds**. | MVP | Proposed |
 | TIME-5 | The server checks that reported times are plausible against its own clock (anti-cheat, tolerance about 1 s). | MVP | Proposed |
 | TIME-6 | Reset / recover policy (allowed, penalty, or forbidden) is a race setting. Defaults from `info.json` (`allowRecover`, `recoverPenalty`, `allowFlip`). | Later | Agreed |
+| TIME-7 | **Time penalties.** A penalty (reason + time + details) counts for the lap it was given in and for the total time. Live positions and gaps stay raw; final positions use total time. The racer is told and the race panel shows the total. No penalty type exists yet; planned: speed zones, vehicle repairs. (The missed-checkpoint catch-up, B-3, was tried and dropped: BeamNG's own checkpoint rules stay as they are.) | MVP | Agreed |
 | TIME-7 | Resets / recoveries during a race are allowed without penalty and counted per racer (`recoveries` in the results). | MVP | Agreed |
 
 ### 4.4 Pathnode visuals (VIS)
@@ -121,14 +122,15 @@ like BeamMP's chat, and players can move them in BeamNG's layout editor (archite
 | ID | Requirement | Priority | Status |
 |----|-------------|----------|--------|
 | FIN-1 | A racer finishes when crossing the line at the end of the last lap. They see a "Finished" message with their position and time, using BeamNG's built-in finish screen if it can be reused, otherwise our own. | MVP | Agreed |
-| FIN-2 | When the first racer finishes, a DNF timer starts (owner setting, default 120 s). Racers still racing when it runs out are DNF (`timeout`). | MVP | Agreed |
+| FIN-2 | When the first racer finishes, a DNF timer starts (owner setting, default 120 s; 0 = no limit, no timer). Racers still racing when it runs out are DNF (`timeout`). | MVP | Agreed |
 | FIN-3 | A racer who disconnects during the race is DNF (`disconnected`). | MVP | Agreed |
 | FIN-4 | Unregistering or deleting the vehicle during the race is DNF (`retired`). | MVP | Proposed |
-| FIN-5 | The race ends when every racer is finished or DNF. An in-game results panel (position, name, total time, best lap, DNF reason) is shown to racers and stays until they close it or a new race starts. This is in addition to the server file (LOG). | MVP | Agreed |
+| FIN-5 | The race ends when every racer is finished or DNF. An in-game results panel (position, name, total time, best lap, DNF reason) is shown to racers, with their own row highlighted. It closes with its Close button, a bindable control ("Close VRacerMP results"), after 30 s, or when a new race starts. Results are also posted to chat (LOG). | MVP | Agreed |
 | FIN-7 | Non-racers are not restricted during a race: they can drive on the track and collide with racers. | MVP | Agreed |
 | FIN-6 | After the race ends, pathnodes are removed and racers drive freely. | MVP | Proposed |
 | FIN-8 | The race panel has a **Retire** button while you race (from the grid until you finish). It asks "Retire from the race?" with **Yes, retire** / **Cancel**; the question cancels itself after 5 s. Retiring makes you DNF (`retired`) and you stay in the standings and results. | MVP | Agreed |
 | FIN-9 | When every player has dropped out (DNF): before GO the race is cancelled quietly (no results); after GO it finishes with results and everyone DNF, fake racers stop too. Either way the track is free for a new race. If someone finished, the race goes on as usual (FIN-5). | MVP | Agreed |
+| FIN-10 | **Server lap record (B-8).** The fastest lap on each track since the server started (memory only, no files), all laps counted, penalty laps included, fake racers excluded. Stored per track and vehicle model; the lobby shows the track's fastest. A new record is announced in chat. | MVP | Agreed |
 
 ### 4.7 Results log (LOG)
 
@@ -183,20 +185,26 @@ v1. Sent as compact JSON in one chat message (LOG-1) and as the `raceResults` me
       "name": "Sarah",
       "id": 3,
       "beammpId": "123456",
-      "vehicle": { "model": "etk800", "config": "856_m" },
+      "vehicle": { "model": "etk800" },
       "gridSlot": 1,
       "status": "finished",
       "dnfReason": null,
       "position": 1,
       "raceStats": {
+        "rawTime": 231334,
+        "penaltyTime": 20000,
         "totalTime": 251334,
         "totalTimeReadable": "04:11.334",
         "lapTimes": [84120, 83105, 84109],
         "lapTimesReadable": ["01:24.120", "01:23.105", "01:24.109"],
+        "lapPenalties": [0, 0, 20000],
         "bestLap": 1,
         "bestLapTime": 83105,
         "gapToWinner": 0,
-        "recoveries": 0
+        "recoveries": 0,
+        "penalties": [
+          { "raceTime": 230500, "lap": 3, "reason": "speedZoneViolation", "penalty": 20000, "details": {} }
+        ]
       }
     }
   ]
@@ -208,6 +216,8 @@ Field notes:
 - racer `status`: `registered` (before GO) | `racing` | `finished` | `dnf`; `dnfReason`: `timeout` | `disconnected` | `retired` | `notOnGrid` | `null`.
 - Keys are written in alphabetical order.
 - `id` is the BeamMP player ID, which is only valid for this session and can be reused after a reconnect. `beammpId` (from `MP.GetPlayerIdentifiers`) identifies the account permanently; it is `null` for guests.
+- Times: `rawTime` is what the car drove; `totalTime` = `rawTime` + `penaltyTime`. `lapTimes` include the penalties given in that lap (`lapPenalties`), so `bestLap` / `bestLapTime` and the server record (B-8) include them too. Final `position` and `gapToWinner` use `totalTime` (TIME-7).
+- `penalties`: one entry per penalty with `raceTime` (ms since GO), `lap` (1-based), `reason` and `penalty` (ms), plus `details` that depend on the reason. No penalty type exists yet, so the list is empty for now; planned reasons: `speedZoneViolation` (as in the example), `vehicleRepair`, ...
 - `bestLap` is the **0-based index** into `lapTimes` (in the example, `1` → `83105`, the second lap). Lua arrays are 1-based, so the server subtracts 1 when writing the file; `bestLapTime` is included so readers don't need the index.
 
 ## 7. Future (not in the first version)
@@ -273,3 +283,5 @@ All parts are feasible with BeamMP + BeamNG Lua. Risks, highest first:
 | 2026-11-08 | TRK-5: BajaSur tracks come from the map mod; VRacerMP.zip ships no tracks for now. |
 | 2026-11-08 | UI: BeamNG-native look; apps on by default and movable by players; one compact race panel. |
 | 2026-11-08 | Added REG-12 (register again after leaving a race), REG-13 (BeamNG mission markers at start areas open for registration), FIN-8 (Retire button with confirmation), FIN-9 (everyone dropped out: cancel before GO, results after GO). No navigation to start areas: they are already on the map. |
+| 2026-11-16 | After the Baja 1000 event: vehicle configs no longer sent (B-1); DNF time 0 = no limit (FIN-2, B-5); results close with a bindable control and after 30 s, own row highlighted (FIN-5, B-6, B-7). Pending work is tracked in [backlog](backlog.md). |
+| 2026-11-16 | Added FIN-10 (server lap record, B-8) and TIME-7 (time penalties, framework only). Results schema: `rawTime`, `penaltyTime`, `lapPenalties`, `penalties`. Controls get their own VRacerMP section. The missed-checkpoint catch-up (B-3) was built, finished races at GO in game, and was dropped by the user: BeamNG's default checkpoint logic stays. |

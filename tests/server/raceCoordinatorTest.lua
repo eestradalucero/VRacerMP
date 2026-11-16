@@ -4,6 +4,7 @@ local protocol = require("vracerMP/shared/protocol")
 local RaceRegistry = require("vracerMP/races/raceRegistry")
 local RaceCoordinator = require("vracerMP/coordinator/raceCoordinator")
 local ResultsAnnouncer = require("vracerMP/results/resultsAnnouncer")
+local LapRecords = require("vracerMP/records/lapRecords")
 local chatCommands = require("vracerMP/coordinator/chatCommands")
 
 local toClient = protocol.toClient
@@ -16,12 +17,13 @@ local function newSetup()
     network = network,
     playerDirectory = fakes.newPlayerDirectory(),
     resultsAnnouncer = ResultsAnnouncer.new(network),
+    lapRecords = LapRecords.new(),
   })
   return { clock = clock, network = network, coordinator = coordinator }
 end
 
 local function register(setup, playerId)
-  setup.coordinator:handleRegister(playerId, { track = fakes.newTrackData(), vehicle = { model = "etk800", config = "856_m" } })
+  setup.coordinator:handleRegister(playerId, { track = fakes.newTrackData(), vehicle = { model = "etk800", config = string.rep("x", 5000) } })
 end
 
 local function getRaceId(setup)
@@ -97,9 +99,13 @@ t.test("full race: grid, countdown, go, gaps, finish, results", function()
   local results = setup.network:getLastPayload(toClient.raceResults, 1)
   t.assertEquals(results.status, "finished")
   t.assertEquals(results.racers[2].raceStats.gapToWinner, 250)
-  t.assertEquals(#setup.network.chats, 1, "results are announced once, at the end")
-  t.assertContains(setup.network.chats[1], '"status":"finished"')
-  t.assertContains(setup.network.chats[1], '"lapTimesReadable":["00:40.000"]')
+  t.assertEquals(#setup.network.chats, 2, "the first lap record, then the results at the end")
+  t.assertContains(setup.network.chats[1], "New server lap record on Circuito Bronco Short Course: 0:40.000 by Player1")
+  local resultsChat = setup.network.chats[2]
+  t.assertContains(resultsChat, '"status":"finished"')
+  t.assertContains(resultsChat, '"lapTimesReadable":["00:40.000"]')
+  t.assertNil(resultsChat:find("config", 1, true), "vehicle configs never reach the results")
+  t.assertTrue(#resultsChat < 2000, "results stay small")
   t.assertEquals(#setup.network:getMessages(toClient.raceRemoved), 1)
 end)
 
@@ -229,6 +235,39 @@ t.test("fake racers stop when every real player drops out", function()
   t.assertEquals(#setup.network.chats, 1)
   t.assertContains(setup.network.chats[1], '"name":"Fake racer 1"')
   t.assertEquals(setup.network:getLastPayload(toClient.raceResults, 1).racers[2].dnfReason, "retired")
+end)
+
+t.test("a penalty is sent to the racer and shows in the standings", function()
+  local setup = newSetup()
+  register(setup, 1)
+  local raceId = getRaceId(setup)
+  setup.coordinator:handleStartRace(1, { raceId = raceId })
+  setup.coordinator:handleGridReady(1, { raceId = raceId })
+  t.assertNil(setup.coordinator:givePenalty(1, { reason = "testPenalty", penaltyMs = 5000 }), "not before GO")
+  runTicks(setup, 3000 + 10000)
+  setup.coordinator:givePenalty(1, { reason = "testPenalty", penaltyMs = 5000 })
+  local penalty = setup.network:getLastPayload(toClient.penalty, 1)
+  t.assertEquals(penalty.reason, "testPenalty")
+  t.assertEquals(penalty.totalPenaltyMs, 5000)
+  t.assertEquals(setup.network:getLastPayload(toClient.standings, 1).entries[1].penaltyTime, 5000)
+end)
+
+t.test("players who join get the lap records; fake racers set none", function()
+  local setup = newSetup()
+  register(setup, 1)
+  chatCommands.runCommand(setup.coordinator, 1, "/vracer fake 20")
+  local raceId = getRaceId(setup)
+  setup.coordinator:handleConfigure(1, { raceId = raceId, laps = 1 })
+  setup.coordinator:handleStartRace(1, { raceId = raceId })
+  setup.coordinator:handleGridReady(1, { raceId = raceId })
+  runTicks(setup, 3000 + 25000)
+  t.assertNil(setup.network:getLastPayload(toClient.lapRecord), "the fake racer's lap is no record")
+  for crossing = 1, 4 do
+    reportCrossing(setup, 1, raceId, crossing, 25000 + crossing * 1000, crossing == 4)
+  end
+  t.assertEquals(setup.network:getLastPayload(toClient.lapRecord).lapTimeMs, 29000)
+  setup.coordinator:handleRequestLobbies(9)
+  t.assertEquals(setup.network:getLastPayload(toClient.lapRecord, 9).name, "Player1")
 end)
 
 t.test("non-commands are not handled by chat commands", function()

@@ -26,6 +26,10 @@ M.dnfReason = {
   notOnGrid = "notOnGrid",       -- never confirmed the grid slot
 }
 
+-- Why a racer got a time penalty. Each reason has its own `details` in the results.
+-- None are given yet; planned: speedZoneViolation, vehicleRepair, ...
+M.penaltyReason = {}
+
 M.raceType = {
   landrush = "landrush",
 }

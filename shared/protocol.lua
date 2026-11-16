@@ -28,6 +28,8 @@ M.toClient = {
   racerFinished = "vracerMP_racerFinished",
   raceResults = "vracerMP_raceResults",
   notice = "vracerMP_notice",
+  penalty = "vracerMP_penalty",     -- to the racer who got a time penalty
+  lapRecord = "vracerMP_lapRecord", -- a track's server lap record (B-8)
 }
 
 M.gapKind = {

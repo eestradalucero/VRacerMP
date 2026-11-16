@@ -46,10 +46,10 @@ sequenceDiagram
 
 | Event | Payload | Notes |
 |-------|---------|-------|
-| `vracerMP_requestLobbies` | `{}` | Sent when the level is loaded. Server answers with one `lobbyUpdated` per race. |
-| `vracerMP_register` | `{ track: { missionId, level, name, closed, pathnodeCount, defaultLaps }, vehicle: { model, config } }` | Creates the track's race if none is open; first registrant is owner. `pathnodeCount` = crossings per lap. |
+| `vracerMP_requestLobbies` | `{}` | Sent when the level is loaded. Server answers with one `lobbyUpdated` per race and one `lapRecord` per track that has a record. |
+| `vracerMP_register` | `{ track: { missionId, level, name, closed, pathnodeCount, defaultLaps }, vehicle: { model } }` | Creates the track's race if none is open; first registrant is owner. `pathnodeCount` = crossings per lap. |
 | `vracerMP_unregister` | `{ raceId }` | Before the start: leave. After (from the grid on): DNF `retired`; also sent by the race panel's Retire button. |
-| `vracerMP_configure` | `{ raceId, laps?, dnfTimeoutSeconds? }` | Owner only, before the start. Laps 1–99 (always 1 on point-to-point tracks); timeout 10–3600 s. |
+| `vracerMP_configure` | `{ raceId, laps?, dnfTimeoutSeconds? }` | Owner only, before the start. Laps 1–99 (always 1 on point-to-point tracks); timeout 0 (no limit) or 10–3600 s. |
 | `vracerMP_startRace` | `{ raceId }` | Owner only. |
 | `vracerMP_gridReady` | `{ raceId }` | Car is on its grid slot. |
 | `vracerMP_pathnodeReached` | `{ raceId, crossingNumber, raceTimeMs, lapCompleted }` | `crossingNumber` counts from 1 across laps; the server ignores anything but the next number. `raceTimeMs` comes from BeamNG's race engine (sub-frame precise). |
@@ -64,10 +64,12 @@ sequenceDiagram
 | `vracerMP_countdown` | racers | `{ raceId, goInMs }` (3000) |
 | `vracerMP_go` | racers | `{ raceId }` |
 | `vracerMP_gap` | one racer | `{ raceId, kind: "ahead" \| "behind", gapMs }` — `ahead`: red gap to the car in front (UI-8); `behind`: green gap to the car behind (UI-9). |
-| `vracerMP_standings` | racers | `{ raceId, racerCount, entries: [{ id, name, position, lapsCompleted, crossings, status }] }` in race order. |
+| `vracerMP_standings` | racers | `{ raceId, racerCount, entries: [{ id, name, position, lapsCompleted, crossings, penaltyTime, status }] }` in race order (live order uses raw times). |
 | `vracerMP_racerFinished` | one racer | `{ raceId, status: "finished" \| "dnf", dnfReason, position, racerCount, totalTimeMs, bestLapTimeMs }` (`-1` = none, `""` = no reason) |
 | `vracerMP_raceResults` | racers | The full results object, same shape as the results JSON ([requirements §6](requirements.md#6-results-schema)). |
 | `vracerMP_notice` | one player | `{ message }` — why a request was refused (not owner, already registered, ...). |
+| `vracerMP_penalty` | one racer | `{ raceId, reason, penaltyMs, totalPenaltyMs }` — the racer got a time penalty; the race panel shows the total. No penalty type sends it yet (planned: speed zones, vehicle repairs). |
+| `vracerMP_lapRecord` | everyone / joining player | `{ missionId, trackName, lapTimeMs, name, model }` — a track's server lap record (B-8): broadcast when broken, and sent to a player who loads the level. A new record is also announced in chat. |
 
 `state` values: `registering`, `gridding`, `countdown`, `running`, `finished`, `aborted`
 (`shared/raceStates.lua`).

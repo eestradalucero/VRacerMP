@@ -24,7 +24,7 @@ function FakeRacer:buildPlayer()
     playerId = self.playerId,
     name = self.name,
     beammpId = nil,
-    vehicle = { model = "fake", config = "fake" },
+    vehicle = { model = "fake" },
     isFake = true,
   }
 end

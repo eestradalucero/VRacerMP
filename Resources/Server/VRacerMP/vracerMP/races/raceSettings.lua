@@ -10,6 +10,7 @@ local MAX_LAPS = 99
 local MIN_DNF_TIMEOUT_SECONDS = 10
 local MAX_DNF_TIMEOUT_SECONDS = 3600
 local DEFAULT_DNF_TIMEOUT_SECONDS = 120
+local NO_DNF_LIMIT = 0 -- nobody is disqualified by time (B-5)
 
 local function isWholeNumberInRange(value, minimum, maximum)
   return type(value) == "number" and value == math.floor(value) and value >= minimum and value <= maximum
@@ -37,25 +38,40 @@ local function validateLaps(laps, track)
 end
 
 local function validateDnfTimeout(seconds)
-  if seconds == nil then return true end
+  if seconds == nil or seconds == NO_DNF_LIMIT then return true end
   if not isWholeNumberInRange(seconds, MIN_DNF_TIMEOUT_SECONDS, MAX_DNF_TIMEOUT_SECONDS) then
-    return false, "DNF timeout must be between " .. MIN_DNF_TIMEOUT_SECONDS .. " and " .. MAX_DNF_TIMEOUT_SECONDS .. " seconds"
+    return false, "DNF timeout must be 0 (no limit) or between " .. MIN_DNF_TIMEOUT_SECONDS .. " and "
+      .. MAX_DNF_TIMEOUT_SECONDS .. " seconds"
   end
   return true
 end
 
--- changes = { laps = n?, dnfTimeoutSeconds = n? }. Applies all or nothing.
--- Returns true, or false and a message for the player.
+local function validateChanges(changes, track)
+  local checks = {
+    { validateLaps, changes.laps, track },
+    { validateDnfTimeout, changes.dnfTimeoutSeconds },
+  }
+  for _, check in ipairs(checks) do
+    local valid, message = check[1](check[2], check[3])
+    if not valid then return false, message end
+  end
+  return true
+end
+
+-- changes = { laps?, dnfTimeoutSeconds? }.
+-- Applies all or nothing. Returns true, or false and a message for the player.
 function RaceSettings:applyChanges(changes, track)
   if type(changes) ~= "table" then return false, "No settings sent" end
-  local lapsValid, lapsError = validateLaps(changes.laps, track)
-  if not lapsValid then return false, lapsError end
-  local timeoutValid, timeoutError = validateDnfTimeout(changes.dnfTimeoutSeconds)
-  if not timeoutValid then return false, timeoutError end
+  local valid, message = validateChanges(changes, track)
+  if not valid then return false, message end
 
   self.laps = changes.laps or self.laps
   self.dnfTimeoutSeconds = changes.dnfTimeoutSeconds or self.dnfTimeoutSeconds
   return true
+end
+
+function RaceSettings:hasDnfLimit()
+  return self.dnfTimeoutSeconds ~= NO_DNF_LIMIT
 end
 
 function RaceSettings:getDnfTimeoutMs()

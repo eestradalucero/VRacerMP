@@ -1,0 +1,10 @@
+{
+  "vracerMP_closeResults": {
+    "cat": "vracerMP",
+    "order": 1,
+    "ctx": "tlua",
+    "onDown": "if vracerMP_main then vracerMP_main.handleUiAction({ action = 'closeResults' }) end",
+    "title": "Close VRacerMP results",
+    "desc": "Closes the VRacerMP race results panel (bind it to a key or wheel button)"
+  }
+}

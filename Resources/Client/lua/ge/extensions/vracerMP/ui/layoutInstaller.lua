@@ -13,9 +13,9 @@ local INSTALLED_LAYOUTS_FILE = "/settings/vracerMP/installedLayouts.json"
 -- Default positions fit next to BeamMP's default layout (architecture §6.2).
 local DEFAULT_APPS = {
   { appName = "vracermpRacePanel", placement = { top = "50px", right = "320px", width = "290px", height = "220px" } },
-  { appName = "vracermpLobby", placement = { top = "290px", right = "320px", width = "330px", height = "360px" } },
+  { appName = "vracermpLobby", placement = { top = "290px", right = "320px", width = "330px", height = "380px" } },
   { appName = "vracermpCountdown", placement = { top = "18%", left = "0px", right = "0px", margin = "auto", width = "420px", height = "260px" } },
-  { appName = "vracermpResults", placement = { top = "14%", left = "0px", right = "0px", margin = "auto", width = "660px", height = "440px" } },
+  { appName = "vracermpResults", placement = { top = "14%", left = "0px", right = "0px", margin = "auto", width = "780px", height = "440px" } },
 }
 
 local LAYOUT_EXTENSION = "ui_appLayouts"

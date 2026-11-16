@@ -61,9 +61,11 @@ function FakeSession:render() end
 function FakeSession:applyGap() end
 function FakeSession:applyStandings() end
 function FakeSession:applyFinish() self.state = "finished" end
+function FakeSession:applyPenalty(penalty) self.penaltyMs = penalty.totalPenaltyMs end
 function FakeSession:dispose() end
 function FakeSession:getHudData()
-  return { position = 1, racerCount = 2, currentLap = 1, laps = self.laps, raceTimeMs = 1000, pathnodesPassed = 0, pathnodeCount = 2 }
+  return { position = 1, racerCount = 2, currentLap = 1, laps = self.laps, raceTimeMs = 1000, pathnodesPassed = 0,
+    pathnodeCount = 2, penaltyMs = self.penaltyMs }
 end
 
 -- Fake start area markers: remember which tracks were marked last frame.
@@ -119,6 +121,13 @@ t.test("the start area is marked while registration is possible", function()
   t.assertEquals(controller.startAreaMarkers.shownTracks[1].missionId, "testlevel/timeTrial/001-Test")
 end)
 
+t.test("the lobby shows the track's server lap record", function()
+  serverSends("vracerMP_lapRecord", { missionId = "testlevel/timeTrial/001-Test", trackName = "Circuito",
+    lapTimeMs = 84120, name = "Ana", model = "etk800" })
+  runFrames(1)
+  t.assertEquals(lastUiView("VRacerMPLobby").serverRecordText, "Server record: 1:24.120 - Ana (etk800)")
+end)
+
 t.test("in a start area the lobby app offers registration", function()
   runFrames(3)
   local lobby = lastUiView("VRacerMPLobby")
@@ -131,7 +140,8 @@ t.test("register button sends the track and vehicle to the server", function()
   controller:handleUiAction({ action = "register" })
   local message = lastServerMessage("vracerMP_register")
   t.assertEquals(message.track.missionId, "testlevel/timeTrial/001-Test")
-  t.assertEquals(message.vehicle.config, "856_m")
+  t.assertEquals(message.vehicle.model, "etk800")
+  t.assertNil(message.vehicle.config, "configs are not sent")
 end)
 
 t.test("owner sees settings; laps button sends a configure", function()
@@ -141,6 +151,20 @@ t.test("owner sees settings; laps button sends a configure", function()
   t.assertTrue(lastUiView("VRacerMPLobby").canEditSettings)
   controller:handleUiAction({ action = "changeLaps", delta = 1 })
   t.assertEquals(lastServerMessage("vracerMP_configure").laps, 3)
+end)
+
+t.test("DNF time steps down to 0 (no limit) but not below", function()
+  serverSends("vracerMP_lobbyUpdated", { raceId = "r-1", missionId = "testlevel/timeTrial/001-Test", state = "registering",
+    ownerId = MY_ID, laps = 2, dnfTimeoutSeconds = 20, racers = { { id = MY_ID, name = "Me" } } })
+  runFrames(1)
+  controller:handleUiAction({ action = "changeDnfTimeout", delta = -30 })
+  t.assertEquals(lastServerMessage("vracerMP_configure").dnfTimeoutSeconds, 0)
+  local sentBefore = #stubs.serverMessages
+  serverSends("vracerMP_lobbyUpdated", { raceId = "r-1", missionId = "testlevel/timeTrial/001-Test", state = "registering",
+    ownerId = MY_ID, laps = 2, dnfTimeoutSeconds = 0, racers = { { id = MY_ID, name = "Me" } } })
+  runFrames(1)
+  controller:handleUiAction({ action = "changeDnfTimeout", delta = -30 })
+  t.assertEquals(#stubs.serverMessages, sentBefore, "nothing below no limit")
 end)
 
 t.test("countdown and race panel follow the start", function()
@@ -157,6 +181,12 @@ t.test("countdown and race panel follow the start", function()
   t.assertTrue(lastUiView("VRacerMPRace").canRetire)
   controller:render(0.016, 0.016)
   t.assertEquals(#controller.startAreaMarkers.shownTracks, 0, "no start markers while racing")
+end)
+
+t.test("a penalty from the server shows on the race panel", function()
+  serverSends("vracerMP_penalty", { raceId = "r-1", reason = "testPenalty", penaltyMs = 85000, totalPenaltyMs = 85000 })
+  runFrames(1)
+  t.assertEquals(lastUiView("VRacerMPRace").penaltyText, "Penalty +1:25.000")
 end)
 
 t.test("retire button sends unregister for our race", function()
@@ -178,6 +208,17 @@ t.test("results show at the end and close on the button", function()
   t.assertEquals(lastUiView("VRacerMPRace").visible, false)
   controller:handleUiAction({ action = "closeResults" })
   runFrames(1)
+  t.assertEquals(lastUiView("VRacerMPResults").visible, false)
+end)
+
+t.test("results close by themselves after 30 seconds", function()
+  serverSends("vracerMP_raceResults", { raceId = "r-2", laps = 1, raceTrack = { name = "Circuito" },
+    racers = { { position = 1, id = MY_ID, name = "Me", status = "finished", raceStats = { totalTime = 60000 } } } })
+  runFrames(1)
+  t.assertTrue(lastUiView("VRacerMPResults").rows[1].isMe)
+  runFrames(280) -- 28 s more
+  t.assertEquals(lastUiView("VRacerMPResults").closeText, "Closes in 2 s")
+  runFrames(25)
   t.assertEquals(lastUiView("VRacerMPResults").visible, false)
 end)
 

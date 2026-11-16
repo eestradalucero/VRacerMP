@@ -5,7 +5,7 @@ local TrackRef = require("vracerMP/races/trackRef")
 local GapTracker = require("vracerMP/races/gapTracker")
 
 local function newPlayer(playerId)
-  return { playerId = playerId, name = "Player" .. playerId, vehicle = { model = "etk800", config = "856_m" } }
+  return { playerId = playerId, name = "Player" .. playerId, vehicle = { model = "etk800" } }
 end
 
 local function newRace(trackOverrides)
@@ -150,6 +150,69 @@ t.test("first finisher starts the DNF timer; timeout marks the rest DNF", functi
   t.assertEquals(#timedOut, 1)
   t.assertEquals(race:getRacer(2).dnfReason, "timeout")
   t.assertTrue(race:isComplete())
+end)
+
+t.test("DNF time 0 means no limit: nobody times out", function()
+  local race, clock = startRaceWith({ 1, 2 })
+  t.assertTrue(race:configure(1, { dnfTimeoutSeconds = 0 }) == false, "settings are locked after the start")
+  race.settings.laps = 1
+  race.settings.dnfTimeoutSeconds = 0
+  driveCrossings(race, clock, 1, 4, 10000)
+  clock:advance(10 * 3600 * 1000)
+  t.assertNil(race:getDueAction(), "no DNF timer")
+  t.assertEquals(race:getRacer(2).status, "racing")
+end)
+
+t.test("DNF time accepts 0 or 10-3600 seconds", function()
+  local race = newRace()
+  race:register(newPlayer(1))
+  t.assertTrue(race:configure(1, { dnfTimeoutSeconds = 0 }))
+  t.assertTrue(race:configure(1, { dnfTimeoutSeconds = 10 }))
+  t.assertEquals((race:configure(1, { dnfTimeoutSeconds = 5 })), false)
+  t.assertEquals((race:configure(1, { dnfTimeoutSeconds = -30 })), false)
+end)
+
+local PENALTY = { reason = "testPenalty", penaltyMs = 20000, details = { note = "test" } }
+
+t.test("a penalty counts for the lap it was given in and the total time", function()
+  local race, clock = startRaceWith({ 1 })
+  race.settings.laps = 2
+  driveCrossings(race, clock, 1, 1, 10000)
+  local penalty = race:givePenalty(1, PENALTY)
+  t.assertEquals(penalty.lap, 1)
+  t.assertEquals(penalty.raceTimeMs, 10000)
+  local outcome = driveCrossings(race, clock, 1, 3, 10000) -- completes lap 1 at 40 s
+  local racer = race:getRacer(1)
+  t.assertEquals(outcome.lapTimeMs, 40000 + 20000, "the lap time includes its penalty")
+  t.assertEquals(racer.lapPenaltiesMs[1], 20000)
+  t.assertEquals(racer:getRawTimeMs(), 40000)
+  t.assertEquals(racer:getTotalTimeMs(), 60000)
+end)
+
+t.test("only racers still racing get penalties", function()
+  local race = startRaceWith({ 1 })
+  race:markDnf(1, "retired")
+  t.assertNil(race:givePenalty(1, PENALTY))
+  t.assertNil(race:givePenalty(99, PENALTY))
+end)
+
+t.test("final positions include penalties; live positions do not", function()
+  local race, clock = startRaceWith({ 1, 2 })
+  race.settings.laps = 1
+  race:givePenalty(1, { reason = "testPenalty", penaltyMs = 60000 })
+  driveCrossings(race, clock, 1, 4, 10000) -- finishes at 40 s, + 60 s penalty
+  driveCrossings(race, clock, 2, 4, 15000) -- finishes at 60 s
+  t.assertEquals(race:getRacer(1).position, 1, "first across the line while racing")
+  race:finish()
+  t.assertEquals(race:getRacer(2).position, 1, "60 s beats 40 s + 60 s")
+  local serialized = race:serialize()
+  t.assertEquals(serialized.racers[1].id, 2)
+  local stats = serialized.racers[2].raceStats
+  t.assertEquals(stats.rawTime, 40000)
+  t.assertEquals(stats.penaltyTime, 60000)
+  t.assertEquals(stats.totalTime, 100000)
+  t.assertEquals(stats.gapToWinner, 40000)
+  t.assertEquals(stats.penalties[1].reason, "testPenalty")
 end)
 
 t.test("implausible race times are flagged", function()

@@ -23,17 +23,12 @@ local function getPosition()
   return { x = position.x, y = position.y, z = position.z }
 end
 
--- "vehicles/etk800/856_m.pc" -> "856_m"
-local function getConfigName(partConfig)
-  if type(partConfig) ~= "string" then return nil end
-  return partConfig:match("([^/\\]+)%.pc$") or partConfig
-end
-
--- { model, config } for the race results (racers keep their own vehicle, START-1).
+-- { model } for the race results (racers keep their own vehicle, START-1). No config: for a
+-- customized vehicle it is the whole serialized setup, which froze the game at race end.
 local function getDescription()
   local vehicle = getVehicle()
   if not vehicle then return {} end
-  return { model = vehicle:getJBeamFilename(), config = getConfigName(vehicle.partConfig) }
+  return { model = vehicle:getJBeamFilename() }
 end
 
 M.getVehicleId = getVehicleId

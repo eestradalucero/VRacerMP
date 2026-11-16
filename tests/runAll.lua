@@ -8,6 +8,7 @@ local testFiles = {
   "tests/shared/jsonEncoderTest.lua",
   "tests/server/raceTest.lua",
   "tests/server/raceCoordinatorTest.lua",
+  "tests/server/lapRecordsTest.lua",
   "tests/client/gridBuilderTest.lua",
   "tests/client/trackInfoTest.lua",
   "tests/client/lobbyStoreTest.lua",

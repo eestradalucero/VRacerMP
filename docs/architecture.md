@@ -192,7 +192,8 @@ Resources/
       races/racer.lua                 -- class Racer (pure)
       races/raceSettings.lua          -- class RaceSettings (pure)
       races/trackRef.lua              -- class TrackRef (pure)
-      races/standings.lua             -- positions (pure functions)
+      races/standings.lua             -- positions (pure functions); final order includes penalties
+      records/lapRecords.lua          -- class LapRecords: fastest laps since start, per track and model (B-8)
       races/gapTracker.lua            -- class GapTracker (pure)
       network/serverNetwork.lua       -- send / broadcast / decode (edge: MP.*)
       network/playerDirectory.lua     -- player names and BeamMP ids (edge: MP.*)
@@ -216,11 +217,12 @@ Resources/
       tracks/startAreaVisibility.lua  -- which start areas show a marker: open for registration (pure, REG-13)
       tracks/startAreaMarkers.lua     -- the only file that touches BeamNG's missionMarker (column fallback)
       lobby/lobbyStore.lua            -- class LobbyStore: latest lobby of every race (pure)
+      lobby/lapRecordStore.lua        -- class LapRecordStore: each track's server lap record (pure, B-8)
       race/raceSession.lua            -- class RaceSession: our car's race, HUD data
       race/raceEngineAdapter.lua      -- the only file that touches gameplay/race/race.lua
       race/markerAdapter.lua          -- the only file that touches race_marker / sideColumnMarker
       race/gridPlacement.lua          -- teleport to grid slot via BeamNG startPosition (freeze later)
-      race/playerVehicle.lua          -- the player's vehicle: id, position, model/config
+      race/playerVehicle.lua          -- the player's vehicle: id, position, model
       ui/lobbyView.lua                -- lobby view model (pure)
       ui/raceView.lua                 -- race panel view model (pure)
       ui/resultsView.lua              -- results view model (pure)
@@ -229,6 +231,7 @@ Resources/
       ui/uiPresenter.lua              -- class UiPresenter: send views on change (pure)
       ui/uiBridge.lua                 -- guihooks + layout editor state (edge)
       ui/layoutInstaller.lua          -- adds our apps to a layout once (edge)
+      ui/controlsSection.lua          -- adds the VRacerMP section to Options -> Controls (edge)
       shared/                         -- generated: copied from /shared by the build
     ui/modules/apps/VRacerMP-RacePanel|Lobby|Countdown|Results/  -- app.json + app.vue (UI-T3)
     gameplay/missions/<level>/timeTrial/<mission>/  -- only for tracks that are in no map (TRK-5); empty for now
@@ -423,3 +426,7 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-08 | UI moves from imgui to BeamNG-native Vue apps (UI-T3..T7): four apps, added once to each layout and then owned by the player, view models built in Lua. |
 | 2026-11-08 | VRacerMP is published as its own project (github.com/eestradalucero/VRacerMP) with a fresh history. No RaceMP code remains, so the RaceMP licence notice is removed; copyright is VracerBCS. Funky7Monkey and AbhiMayadam are thanked in the README. |
 | 2026-11-08 | Start areas use BeamNG's own mission marker (`gameplay/markers/missionMarker`). BeamNG only updates those markers in freeroam/career, so `startAreaMarkers` creates them and feeds them each frame the data `markerInteraction` would; if that fails it falls back to a debug-drawn column. Retire uses the existing `unregister` message. The coordinator ends a race when every player is DNF (cancel before GO, results after GO) and broadcasts the lobby whenever racers finish or retire, so clients know who is free to register again. |
+| 2026-11-16 | Closing the results is also a BeamNG input action, defined by the mod in `lua/ge/extensions/core/input/actions/vracerMP.json` (BeamNG loads every file there), so players can bind it in Options → Controls. Auto-close is counted in the client controller; the view only shows the seconds left. |
+| 2026-11-16 | Controls get their own section: `controlsSection` adds `vracerMP` to BeamNG's `core_input_categories` table at load (a mod cannot ship categories.lua). |
+| 2026-11-16 | Missed-checkpoint catch-up (B-3) was built by moving BeamNG's race engine state from outside and dropped after the in-game test: on the first frame after GO the engine's previous wheel positions are still at the origin, so the line to the car crossed every pathnode and races finished at GO. The user chose to keep BeamNG's checkpoint logic untouched. What stays is a generic penalty path: `RaceCoordinator:givePenalty` → `Race:givePenalty` → `Racer:addPenalty`, with raw/total times, final order by total time, and the `penalty` message. |
+| 2026-11-16 | Lap records live in a `LapRecords` object injected into the coordinator (memory only). Records are kept per track and per vehicle model from the start. |

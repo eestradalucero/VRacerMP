@@ -1,6 +1,7 @@
 <!--
-  VRacerMP results (FIN-5): final standings, shown until the player closes it or a new race starts.
-  Lua sends { title, rows } in "VRacerMPResults"; Close is sent back as an action.
+  VRacerMP results (FIN-5): final standings. Closes with the Close button, the bindable
+  "Close VRacerMP results" control, after 30 s, or when a new race starts (B-6).
+  Our own row is highlighted (B-7). Lua sends { title, rows, closeText } in "VRacerMPResults".
 -->
 <template>
   <div v-if="view.visible" class="vracermp-results">
@@ -10,6 +11,8 @@
       <div class="row header">
         <span class="col-position">Pos</span>
         <span class="col-name">Name</span>
+        <span class="col-time">Time</span>
+        <span class="col-penalty">Penalties</span>
         <span class="col-time">Total</span>
         <span class="col-gap">Gap</span>
         <span class="col-time">Best lap</span>
@@ -19,11 +22,13 @@
         v-for="row in view.rows"
         :key="row.position + row.name"
         class="row"
-        :class="{ dnf: !row.isFinished, winner: row.position === '1' }"
+        :class="{ dnf: !row.isFinished, winner: row.position === '1', me: row.isMe }"
       >
         <span class="col-position">{{ row.position }}</span>
         <span class="col-name">{{ row.name }}</span>
-        <span class="col-time">{{ row.totalTime }}</span>
+        <span class="col-time">{{ row.rawTime }}</span>
+        <span class="col-penalty">{{ row.penaltyTime }}</span>
+        <span class="col-time col-total">{{ row.totalTime }}</span>
         <span class="col-gap">{{ row.gapToWinner }}</span>
         <span class="col-time">{{ row.bestLap }}</span>
         <span class="col-status">{{ row.status }}</span>
@@ -31,6 +36,7 @@
     </div>
 
     <div class="buttons">
+      <span v-if="view.closeText" class="close-text">{{ view.closeText }}</span>
       <BngButton accent="main" @click="sendAction('closeResults')">Close</BngButton>
     </div>
   </div>
@@ -102,8 +108,15 @@ onMounted(() => sendAction("refresh"))
     color: var(--bng-cool-gray-300);
   }
 
-  &.winner {
-    background: rgba(var(--bng-orange-500-rgb), 0.25);
+  &.winner .col-position {
+    font-weight: 700;
+    color: var(--bng-orange-400);
+  }
+
+  &.me {
+    background: rgba(var(--bng-orange-500-rgb), 0.3);
+    box-shadow: inset 0.2em 0 0 var(--bng-orange-400);
+    font-weight: 700;
   }
 
   &.dnf {
@@ -115,10 +128,19 @@ onMounted(() => sendAction("refresh"))
 .col-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .col-time { width: 6em; text-align: right; }
 .col-gap { width: 6em; text-align: right; color: var(--bng-cool-gray-300); }
+.col-penalty { width: 6.5em; text-align: right; color: var(--bng-add-red-400, #ff5c5c); }
+.col-total { font-weight: 700; }
 .col-status { width: 7em; text-align: right; }
 
 .buttons {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.75em;
+}
+
+.close-text {
+  color: var(--bng-cool-gray-300);
+  font-variant-numeric: tabular-nums;
 }
 </style>
