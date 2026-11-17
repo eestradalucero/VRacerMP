@@ -48,7 +48,7 @@ sequenceDiagram
 |-------|---------|-------|
 | `vracerMP_requestLobbies` | `{ tracks: [{ missionId, level, name, closed, pathnodeCount, defaultLaps }] }` | Sent when the level is loaded, and again every 2 s until the server answers with `welcome` (a message sent while still joining can be lost). `tracks` are the map's race tracks, kept in memory so races can be created by command (B-4; at most 500 are read). Server answers with one `lobbyUpdated` per race and one `lapRecord` per track that has a record. |
 | `vracerMP_register` | `{ track: { missionId, level, name, closed, pathnodeCount, defaultLaps }, vehicle: { model } }` | Creates the track's race if none is open; first registrant is owner. `pathnodeCount` = crossings per lap. |
-| `vracerMP_unregister` | `{ raceId }` | Before the start: leave. After (from the grid on): DNF `retired`; also sent by the race panel's Retire button. |
+| `vracerMP_unregister` | `{ raceId }` | Before the start: leave. After (from the grid on): DNF `retired`; also sent by the laps app's Retire button. |
 | `vracerMP_configure` | `{ raceId, laps?, dnfTimeoutSeconds? }` | Owner only, before the start. Laps 1–99 (always 1 on point-to-point tracks); timeout 0 (no limit) or 10–3600 s. |
 | `vracerMP_startRace` | `{ raceId }` | Owner only. |
 | `vracerMP_gridReady` | `{ raceId, vehicle: { model } }` | Car is on its grid slot. `vehicle` is the car the player races with (players registered by command had sent none). |
@@ -69,7 +69,7 @@ sequenceDiagram
 | `vracerMP_racerFinished` | one racer | `{ raceId, status: "finished" \| "dnf", dnfReason, position, racerCount, totalTimeMs, bestLapTimeMs }` (`-1` = none, `""` = no reason) |
 | `vracerMP_raceResults` | racers | The full results object, same shape as the results JSON ([requirements §6](requirements.md#6-results-schema)). |
 | `vracerMP_notice` | one player | `{ message }` — why a request was refused (not owner, already registered, ...). |
-| `vracerMP_penalty` | one racer | `{ raceId, reason, penaltyMs, totalPenaltyMs }` — the racer got a time penalty; the race panel shows the total. No penalty type sends it yet (planned: speed zones, vehicle repairs). |
+| `vracerMP_penalty` | one racer | `{ raceId, reason, penaltyMs, totalPenaltyMs }` — the racer got a time penalty; the race info app shows the total. No penalty type sends it yet (planned: speed zones, vehicle repairs). |
 | `vracerMP_lapRecord` | everyone / joining player | `{ missionId, trackName, lapTimeMs, name, model }` — a track's server lap record (B-8): broadcast when broken, and sent to a player who loads the level. A new record is also announced in chat. |
 
 `state` values: `registering`, `gridding`, `countdown`, `running`, `finished`, `aborted`

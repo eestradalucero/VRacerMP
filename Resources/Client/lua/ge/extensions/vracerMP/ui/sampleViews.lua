@@ -2,7 +2,8 @@
 -- see and move the apps (UI-T6). Pure; built with the real view builders.
 
 local lobbyView = require("vracerMP/ui/lobbyView")
-local raceView = require("vracerMP/ui/raceView")
+local raceInfoView = require("vracerMP/ui/raceInfoView")
+local lapsView = require("vracerMP/ui/lapsView")
 local resultsView = require("vracerMP/ui/resultsView")
 
 local M = {}
@@ -15,8 +16,17 @@ local SAMPLE_LOBBY = {
 }
 
 local SAMPLE_HUD = {
-  position = 2, racerCount = 6, currentLap = 2, laps = 3, raceTimeMs = 104321, bestLapMs = 51234,
-  pathnodesPassed = 7, pathnodeCount = 19, aheadGapMs = 412, behindGapMs = 1730, penaltyMs = 40000,
+  position = 2, racerCount = 6, currentLap = 2, laps = 3, raceTimeMs = 104321, currentLapMs = 53087,
+  bestLapMs = 51234, pathnodesPassed = 7, pathnodeCount = 19, penaltyMs = 10000,
+}
+
+local SAMPLE_RECORD = { lapTimeMs = 50980, name = "Racer Two", model = "etk800" }
+
+-- Both deltas on, so they can be placed in the layout editor.
+local SAMPLE_DELTAS = {
+  visible = true,
+  ahead = { text = "+0\".412", isShown = true },
+  behind = { text = "-1\".730", isShown = true },
 }
 
 local SAMPLE_RESULTS = {
@@ -31,9 +41,10 @@ local SAMPLE_RESULTS = {
 
 local function build()
   return {
-    lobby = lobbyView.build(SAMPLE_TRACK, SAMPLE_LOBBY, 1,
-      { lapTimeMs = 50980, name = "Racer Two", model = "etk800" }),
-    race = raceView.build(SAMPLE_HUD),
+    lobby = lobbyView.build(SAMPLE_TRACK, SAMPLE_LOBBY, 1, SAMPLE_RECORD),
+    raceInfo = raceInfoView.build(SAMPLE_HUD, SAMPLE_RECORD),
+    deltas = SAMPLE_DELTAS,
+    laps = lapsView.build(SAMPLE_HUD),
     countdown = { visible = true, text = "3", animationKey = 0, isGo = false },
     results = resultsView.build(SAMPLE_RESULTS, 1, 30),
   }

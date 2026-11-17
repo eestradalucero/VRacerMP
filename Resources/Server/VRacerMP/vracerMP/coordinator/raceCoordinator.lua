@@ -344,7 +344,7 @@ end
 local function announceLapRecord(self, record)
   self.network.broadcast(toClient.lapRecord, messageBuilder.buildLapRecord(record))
   self.network.broadcastChat(string.format("New server lap record on %s: %s by %s (%s)",
-    record.trackName, timeFormat.formatHudTime(record.lapTimeMs), record.name, record.model))
+    record.trackName, timeFormat.formatDisplayTime(record.lapTimeMs), record.name, record.model))
 end
 
 -- Fake racers are for testing and never set records.

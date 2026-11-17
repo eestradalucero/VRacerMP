@@ -107,7 +107,7 @@ t.test("full race: grid, countdown, go, gaps, finish, results", function()
   t.assertEquals(results.status, "finished")
   t.assertEquals(results.racers[2].raceStats.gapToWinner, 250)
   t.assertEquals(#setup.network.chats, 2, "the first lap record, then the results at the end")
-  t.assertContains(setup.network.chats[1], "New server lap record on Circuito Bronco Short Course: 0:40.000 by Player1")
+  t.assertContains(setup.network.chats[1], "New server lap record on Circuito Bronco Short Course: 00'40\".000 by Player1")
   local resultsChat = setup.network.chats[2]
   t.assertContains(resultsChat, '"status":"finished"')
   t.assertContains(resultsChat, '"lapTimesReadable":["00:40.000"]')

@@ -1,0 +1,22 @@
+{
+  "domElement": "<vracermp-race-info></vracermp-race-info>",
+  "directive": "vracermpRaceInfo",
+  "name": "VRacerMP Race Info",
+  "description": "Place, total time, current lap, best lap and server record during a VRacerMP race",
+  "types": ["ui.apps.categories.racing"],
+  "category": "Gameplay",
+  "author": "VRacerMP",
+  "version": "1.0",
+  "css": {
+    "top": "10px",
+    "left": "10px",
+    "width": "340px",
+    "height": "190px",
+    "min-width": "200px",
+    "min-height": "120px"
+  },
+  "isAuxiliary": false,
+  "interactive": "no",
+  "preserveAspectRatio": false,
+  "vue": true
+}

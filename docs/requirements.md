@@ -87,7 +87,7 @@ and the race results sent to the server chat as JSON.
 | TIME-4 | Times are stored and sent as integer **milliseconds**. | MVP | Proposed |
 | TIME-5 | The server checks that reported times are plausible against its own clock (anti-cheat, tolerance about 1 s). | MVP | Proposed |
 | TIME-6 | Reset / recover policy (allowed, penalty, or forbidden) is a race setting. Defaults from `info.json` (`allowRecover`, `recoverPenalty`, `allowFlip`). | Later | Agreed |
-| TIME-7 | **Time penalties.** A penalty (reason + time + details) counts for the lap it was given in and for the total time. Live positions and gaps stay raw; final positions use total time. The racer is told and the race panel shows the total. No penalty type exists yet; planned: speed zones, vehicle repairs. (The missed-checkpoint catch-up, B-3, was tried and dropped: BeamNG's own checkpoint rules stay as they are.) | MVP | Agreed |
+| TIME-7 | **Time penalties.** A penalty (reason + time + details) counts for the lap it was given in and for the total time. Live positions and gaps stay raw; final positions use total time. The racer is told and the race info app shows the total. No penalty type exists yet; planned: speed zones, vehicle repairs. (The missed-checkpoint catch-up, B-3, was tried and dropped: BeamNG's own checkpoint rules stay as they are.) | MVP | Agreed |
 | TIME-7 | Resets / recoveries during a race are allowed without penalty and counted per racer (`recoveries` in the results). | MVP | Agreed |
 
 ### 4.4 Pathnode visuals (VIS)
@@ -106,16 +106,16 @@ like BeamMP's chat, and players can move them in BeamNG's layout editor (archite
 
 | ID | Requirement | Priority | Status |
 |----|-------------|----------|--------|
-| UI-1 | Position in race (e.g. `P2 / 6`). | MVP | Agreed |
+| UI-1 | Place in the race as an ordinal (`1st`, `2nd`, `3rd`, `4th`), without the number of racers (B-2). | MVP | Agreed |
 | UI-2 | Position is updated at every pathnode. | MVP | Agreed |
 | UI-3 | Position is updated continuously using lap + pathnode + distance to the next pathnode. | Later | Agreed |
-| UI-4 | Current lap / total laps. | MVP | Agreed |
-| UI-5 | Current race time. | MVP | Agreed |
+| UI-4 | Current lap / total laps (`Laps: 2/3`), next to the Retire button (B-2). | MVP | Agreed |
+| UI-5 | Total race time and current lap time (`Total time: …`, `Current lap: …`), plus the track's server record (`Server Record - <name>: …`, hidden when there is none) (B-2). | MVP | Agreed |
 | UI-6 | Best lap in this race, if any. | MVP | Agreed |
-| UI-7 | Pathnodes passed / total, for the current lap. | MVP | Agreed |
-| UI-8 | At every pathnode: the gap to the car ahead in **red** (`-0:00.000`), shown immediately. | MVP | Agreed |
-| UI-9 | Gap to the car behind in **green** (`+0:00.000`), shown when the car behind reaches that same pathnode (it can't be known earlier). | MVP | Agreed |
-| UI-10 | Time format everywhere: `m:ss.mmm` (`mm:ss.mmm` in files). | MVP | Proposed |
+| UI-7 | ~~Pathnodes passed / total, for the current lap.~~ Removed in B-2 (2026-11-16). | MVP | Dropped |
+| UI-8 | At every pathnode: the gap to the car ahead in **red** (`+0".842`), shown immediately in its own app (centre, a quarter down, no background). Fades in over 0.2 s, stays 3 s, fades out over 0.2 s (B-2). | MVP | Agreed |
+| UI-9 | Gap to the car behind in **green** (`-1".276`), shown when the car behind reaches that same pathnode (it can't be known earlier). Fades like UI-8, independently of it (B-2). | MVP | Agreed |
+| UI-10 | Time format on screen and in chat: `mm'ss".fff`, with hours only past an hour (`1:04'12".880`); differences (gaps, penalties) `+7".768` under a minute. The results JSON keeps `mm:ss.mmm` (B-2). | MVP | Agreed |
 
 ### 4.6 Finish (FIN)
 
@@ -128,7 +128,7 @@ like BeamMP's chat, and players can move them in BeamNG's layout editor (archite
 | FIN-5 | The race ends when every racer is finished or DNF. An in-game results panel (position, name, total time, best lap, DNF reason) is shown to racers, with their own row highlighted. It closes with its Close button, a bindable control ("Close VRacerMP results"), after 30 s, or when a new race starts. Results are also posted to chat (LOG). | MVP | Agreed |
 | FIN-7 | Non-racers are not restricted during a race: they can drive on the track and collide with racers. | MVP | Agreed |
 | FIN-6 | After the race ends, pathnodes are removed and racers drive freely. | MVP | Proposed |
-| FIN-8 | The race panel has a **Retire** button while you race (from the grid until you finish). It asks "Retire from the race?" with **Yes, retire** / **Cancel**; the question cancels itself after 5 s. Retiring makes you DNF (`retired`) and you stay in the standings and results. | MVP | Agreed |
+| FIN-8 | The laps app has a **Retire** button while you race (from the grid until you finish). It asks "Retire from the race?" with **Yes, retire** / **Cancel**; the question cancels itself after 5 s. Retiring makes you DNF (`retired`) and you stay in the standings and results. | MVP | Agreed |
 | FIN-9 | When every player has dropped out (DNF): before GO the race is cancelled quietly (no results); after GO it finishes with results and everyone DNF, fake racers stop too. Either way the track is free for a new race. If someone finished, the race goes on as usual (FIN-5). | MVP | Agreed |
 | FIN-10 | **Server lap record (B-8).** The fastest lap on each track since the server started (memory only, no files), all laps counted, penalty laps included, fake racers excluded. Stored per track and vehicle model; the lobby shows the track's fastest. A new record is announced in chat. | MVP | Agreed |
 

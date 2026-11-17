@@ -18,7 +18,9 @@ local UiPresenter = require("vracerMP/ui/uiPresenter")
 local uiBridge = require("vracerMP/ui/uiBridge")
 local layoutInstaller = require("vracerMP/ui/layoutInstaller")
 local lobbyView = require("vracerMP/ui/lobbyView")
-local raceView = require("vracerMP/ui/raceView")
+local raceInfoView = require("vracerMP/ui/raceInfoView")
+local lapsView = require("vracerMP/ui/lapsView")
+local DeltaDisplay = require("vracerMP/ui/deltaDisplay")
 local resultsView = require("vracerMP/ui/resultsView")
 local sampleViews = require("vracerMP/ui/sampleViews")
 local uiActions = require("vracerMP/controller/uiActions")
@@ -56,6 +58,7 @@ function ClientController.new()
   self.secondsUntilStartAreaCheck = 0
   self.secondsUntilLayoutCheck = 0
   self.countdown = Countdown.new()
+  self.deltaDisplay = DeltaDisplay.new()
   self.presenter = UiPresenter.new(uiBridge.sendToUi)
   self.startAreaMarkers = StartAreaMarkers.new()
   return self
@@ -98,6 +101,7 @@ end
 local function endSession(self)
   if self.session then self.session:dispose() end
   self.session = nil
+  self.deltaDisplay:clear()
 end
 
 function ClientController:unloadLevel()
@@ -168,7 +172,7 @@ local function handleGo(self, payload)
 end
 
 local function handleGap(self, payload)
-  if isAboutMySession(self, payload) then self.session:applyGap(payload) end
+  if isAboutMySession(self, payload) then self.deltaDisplay:show(payload) end
 end
 
 local function handleStandings(self, payload)
@@ -192,7 +196,8 @@ local function handleNotice(self, payload)
 end
 
 local function getPenaltyNotice(penalty)
-  return string.format("VRacerMP: +%s penalty (%s)", timeFormat.formatHudTime(penalty.penaltyMs), tostring(penalty.reason))
+  return string.format("VRacerMP: %s penalty (%s)", timeFormat.formatSignedDifference(penalty.penaltyMs, "+"),
+    tostring(penalty.reason))
 end
 
 local function handlePenalty(self, payload)
@@ -266,7 +271,10 @@ local function buildViews(self)
   return {
     lobby = lobbyView.build(self.panelTrack, self.panelLobby, myPlayerId,
       self.panelTrack and self.lapRecordStore:findRecord(self.panelTrack.missionId)),
-    race = self.session and raceView.build(self.session:getHudData()) or raceView.HIDDEN,
+    raceInfo = self.session and raceInfoView.build(self.session:getHudData(),
+      self.lapRecordStore:findRecord(self.session.track.missionId)) or raceInfoView.HIDDEN,
+    deltas = self.deltaDisplay:getView(self.session ~= nil),
+    laps = self.session and lapsView.build(self.session:getHudData()) or lapsView.HIDDEN,
     countdown = self.countdown:getView(),
     results = self.results and resultsView.build(self.results, myPlayerId, self.secondsUntilResultsClose)
       or resultsView.HIDDEN,
@@ -290,6 +298,7 @@ local function updateUi(self, dtReal)
   installAppsWhenDue(self, dtReal)
   closeResultsWhenDue(self, dtReal)
   self.countdown:update(dtReal)
+  self.deltaDisplay:update(dtReal)
   self.presenter:present(buildViews(self), dtReal)
 end
 

@@ -2,6 +2,8 @@
   VRacerMP results (FIN-5): final standings. Closes with the Close button, the bindable
   "Close VRacerMP results" control, after 30 s, or when a new race starts (B-6).
   Our own row is highlighted (B-7). Lua sends { title, rows, closeText } in "VRacerMPResults".
+  Every row, the header included, uses the same fixed column grid (in rem, so the header's
+  smaller font does not shrink its columns): the columns always line up (B-2).
 -->
 <template>
   <div v-if="view.visible" class="vracermp-results">
@@ -93,10 +95,14 @@ onMounted(() => sendAction("refresh"))
   gap: 0.15em;
 }
 
+// Pos, Name, Time, Penalties, Total, Gap, Best lap, Status.
+$results-columns: 2rem minmax(0, 1fr) 6.4rem 5.4rem 6.4rem 5.4rem 6.4rem 6.5rem;
+
 .row {
-  display: flex;
+  display: grid;
+  grid-template-columns: $results-columns;
   align-items: center;
-  gap: 0.6em;
+  column-gap: 0.6rem;
   padding: 0.3em 0.4em;
   border-radius: var(--bng-corners-1, 3px);
   background: rgba(var(--bng-cool-gray-800-rgb), 0.5);
@@ -124,13 +130,12 @@ onMounted(() => sendAction("refresh"))
   }
 }
 
-.col-position { width: 2.5em; }
-.col-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col-time { width: 6em; text-align: right; }
-.col-gap { width: 6em; text-align: right; color: var(--bng-cool-gray-300); }
-.col-penalty { width: 6.5em; text-align: right; color: var(--bng-add-red-400, #ff5c5c); }
+.col-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-time { text-align: right; }
+.col-gap { text-align: right; color: var(--bng-cool-gray-300); }
+.col-penalty { text-align: right; color: var(--bng-add-red-400, #ff5c5c); }
 .col-total { font-weight: 700; }
-.col-status { width: 7em; text-align: right; }
+.col-status { text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .buttons {
   display: flex;
