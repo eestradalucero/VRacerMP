@@ -22,7 +22,7 @@ Build one step at a time; stop after each step so it can be tested in game.
 | B-8 | Server lap record | Done (tested 2026-11-16) |
 | B-3 | Missed checkpoint: catch-up + penalties | Dropped (2026-11-16): penalty framework kept |
 | B-4 | Commands (console, chat, plugins) + `docs/commands.md` | Done (tested 2026-11-16) |
-| B-2 | Race information UI changes | Waiting (details from the user) |
+| B-2 | Race information UI changes | Done (tested 2026-11-16) |
 | B-9 | English and Spanish translations (BabelEdit) | Later (last, maybe a future session) |
 | B-10 | Rankings: best time per player, per car and overall | Later (to discuss) |
 | B-11 | Race-only prefabs, loaded on racing clients and removed at the end | Waiting (user learns the single-player setup first) |
@@ -70,12 +70,27 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
 - Server: `RaceCoordinator:givePenalty(playerId, { reason, penaltyMs, details })`. A penalty
   counts for the lap it was given in and for the total time.
 - Live positions and gaps stay raw; final results are ordered by total time.
-- The racer gets a `penalty` message; the race panel shows "Penalty +m:ss.mmm".
+- The racer gets a `penalty` message; the race info app shows "Penalty: +10\".000".
 - Results screen: Time (raw), Penalties, Total columns.
 - Results JSON: `raceStats` has `rawTime`, `penaltyTime`, `totalTime`, `lapPenalties` and a
   `penalties` list; each penalty has `raceTime`, `lap`, `reason`, `penalty` and reason-specific
   `details`.
 - The `penaltyReason` enum (`shared/raceStates.lua`) is empty until the first penalty type.
+
+### B-2 Race UI (agreed 2026-11-16, from two previews)
+- The race panel becomes three apps, each movable in the layout editor:
+  - **Race info**, top left, 5 px padding, left aligned: place (`2nd`), `Total time`,
+    `Current lap`, `Best lap` (this race), `Server Record - <name>` (hidden when there is
+    none). Penalty and finish/DNF rows appear only when they apply.
+  - **Deltas**, centred a quarter down, no background: racer ahead in red (`+0".842`),
+    racer behind in green (`-1".276`). Each fades in over 0.2 s when its gap arrives, stays
+    3 s, fades out over 0.2 s, on its own.
+  - **Laps and retire**, top right: `Laps: 2/3` and Retire. The confirmation ("Retire from
+    the race? You'll be DNF." Yes, retire / Cancel) replaces that row in place.
+- Time format: `mm'ss".fff`, with hours only past an hour (`1:04'12".880`). Used everywhere
+  on screen and in chat; the results JSON keeps `mm:ss.mmm`.
+- Results: the columns line up (header and rows share one grid); same time format.
+- Pathnode count and racer count are no longer shown.
 
 ### B-4 Commands
 - One command system, three entry points sharing one parser: the server console
@@ -186,3 +201,4 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
 | 2026-11-16 | B-3 missed-checkpoint catch-up dropped; penalty framework kept for future penalty types. |
 | 2026-11-16 | B-6 results close by a bindable control (own VRacerMP controls section) and after 30 s; B-8 server lap record. |
 | 2026-11-16 | B-4 commands for the console, chat and plugins (`--all`, test-only `fake`); clients resend their tracks until the server welcomes them. |
+| 2026-11-16 | B-2 race UI: race info, deltas and laps-and-retire apps; new time format; aligned results columns. |

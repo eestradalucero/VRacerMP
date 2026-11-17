@@ -234,7 +234,9 @@ Resources/
       race/gridPlacement.lua          -- teleport to grid slot via BeamNG startPosition (freeze later)
       race/playerVehicle.lua          -- the player's vehicle: id, position, model
       ui/lobbyView.lua                -- lobby view model (pure)
-      ui/raceView.lua                 -- race panel view model (pure)
+      ui/raceInfoView.lua             -- race info view model: place, times, record (pure, B-2)
+      ui/lapsView.lua                 -- laps-and-retire view model (pure, B-2)
+      ui/deltaDisplay.lua             -- class: when each gap delta is shown (pure, B-2)
       ui/resultsView.lua              -- results view model (pure)
       ui/sampleViews.lua              -- sample content for the layout editor (pure)
       ui/countdown.lua                -- class Countdown: 3-2-1-GO timing (pure)
@@ -243,7 +245,7 @@ Resources/
       ui/layoutInstaller.lua          -- adds our apps to a layout once (edge)
       ui/controlsSection.lua          -- adds the VRacerMP section to Options -> Controls (edge)
       shared/                         -- generated: copied from /shared by the build
-    ui/modules/apps/VRacerMP-RacePanel|Lobby|Countdown|Results/  -- app.json + app.vue (UI-T3)
+    ui/modules/apps/VRacerMP-RaceInfo|Deltas|Laps|Lobby|Countdown|Results/  -- app.json + app.vue (UI-T3)
     gameplay/missions/<level>/timeTrial/<mission>/  -- only for tracks that are in no map (TRK-5); empty for now
 
 shared/                               -- written once, used by both sides
@@ -361,7 +363,7 @@ Full payloads: [protocol.md](protocol.md).
 | UI-T1 | MVP used imgui windows. **Replaced by UI-T3** (2026-11-08). | Superseded |
 | UI-T2 | Countdown: our own animated app (size + transparency), timed in Lua. | Agreed |
 | UI-T3 | **BeamNG-native Vue UI apps.** BeamNG 0.40 compiles `ui/modules/apps/<App>/app.vue` from mods at runtime, so we ship `.vue` files (no build step) using BeamNG's own components and colours (`BngSimpleDataDisplay`, `BngButton`, `--bng-*` CSS variables). | Agreed |
-| UI-T4 | **Four apps**, one job each: `vracermpRacePanel` (compact race HUD), `vracermpLobby` (registration, interactive), `vracermpCountdown`, `vracermpResults` (interactive). | Agreed |
+| UI-T4 | **Six apps**, one job each: `vracermpRaceInfo` (place, times, record), `vracermpDeltas` (red / green gaps), `vracermpLaps` (laps and Retire, interactive), `vracermpLobby` (registration, interactive), `vracermpCountdown`, `vracermpResults` (interactive). Until B-2 the first three were one race panel (`vracermpRacePanel`), which the layout installer now removes from players' layouts. | Agreed |
 | UI-T5 | **On by default, then the player's.** The first time VRacerMP sees a UI layout (e.g. BeamMP's `beammp` layout), it adds its apps once with default positions through BeamNG's layout API (`ui_appLayouts.addApp`), like BeamMP's chat is there from the start. Players then move or remove them in the layout editor; they are never re-added to that layout (remembered in `/settings/vracerMP/installedLayouts.json`). | Agreed |
 | UI-T6 | Apps draw nothing when they have nothing to show, but show sample content while the layout editor is open so they can be found and moved. | Agreed |
 | UI-T7 | **Lua prepares, Vue displays.** Lua builds display-ready view models (times already formatted by `shared/timeFormat`), so formatting is not duplicated in JavaScript. Vue only renders and sends button clicks back. | Agreed |
@@ -370,7 +372,7 @@ Full payloads: [protocol.md](protocol.md).
 
 ```mermaid
 flowchart LR
-  CTRL[clientController] --> VIEWS[lobbyView / raceView / resultsView<br/>pure view models]
+  CTRL[clientController] --> VIEWS[lobbyView / raceInfoView / lapsView / deltaDisplay / resultsView<br/>pure view models]
   VIEWS --> PRES[uiPresenter<br/>send on change, 20 Hz for the race clock]
   PRES -->|guihooks.trigger| APPS[Vue apps]
   APPS -->|engineLua vracerMP_main.handleUiAction| CTRL
@@ -379,12 +381,14 @@ flowchart LR
 | Lua → UI event | App | Content |
 |----------------|-----|---------|
 | `VRacerMPLobby` | lobby | track name, racers, laps, DNF timeout, what the player may do (register, unregister, edit, start) |
-| `VRacerMPRace` | race panel | position, lap, race time, best lap, pathnodes, red / green gaps, finish text |
+| `VRacerMPRaceInfo` | race info | place, total time, current lap, best lap, server record; penalty and finish rows when they apply |
+| `VRacerMPDeltas` | deltas | `ahead` and `behind`, each `{ text, isShown }`; the app fades on `isShown` |
+| `VRacerMPLaps` | laps | `Laps: 2/3` and whether Retire is offered |
 | `VRacerMPCountdown` | countdown | text (`3`, `2`, `1`, `GO!`) and a counter that restarts the animation |
 | `VRacerMPResults` | results | title and one row per racer |
 
 UI → Lua: `vracerMP_main.handleUiAction({ action = ... })` with `register`, `unregister`,
-`changeLaps {delta}`, `changeDnfTimeout {delta}`, `startRace`, `closeResults`, `refresh`
+`changeLaps {delta}`, `changeDnfTimeout {delta}`, `startRace`, `retire`, `closeResults`, `refresh`
 (an app asks for the current state when it appears).
 
 ### 6.2 Default positions
@@ -394,10 +398,12 @@ session bar top-centre, chat bottom-left):
 
 | App | Default placement |
 |-----|-------------------|
-| Race panel | top 50px, right 320px (left of the player list), 290 × 220 |
+| Race info | top 10px, left 10px, 340 × 190 (the panel hugs its content, anchored top left) |
+| Deltas | centred, top 20%, 300 × 100 |
+| Laps | top 10px, right 10px, 420 × 50 (anchored top right; the Retire question grows to the left) |
 | Lobby | top 290px, right 320px, 330 × 360 |
 | Countdown | centred, top 18%, 420 × 260 |
-| Results | centred, top 14%, 660 × 440 |
+| Results | centred, top 14%, 860 × 440 |
 
 ## 7. Testing
 
@@ -441,3 +447,4 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-16 | Missed-checkpoint catch-up (B-3) was built by moving BeamNG's race engine state from outside and dropped after the in-game test: on the first frame after GO the engine's previous wheel positions are still at the origin, so the line to the car crossed every pathnode and races finished at GO. The user chose to keep BeamNG's checkpoint logic untouched. What stays is a generic penalty path: `RaceCoordinator:givePenalty` → `Race:givePenalty` → `Racer:addPenalty`, with raw/total times, final order by total time, and the `penalty` message. |
 | 2026-11-16 | Lap records live in a `LapRecords` object injected into the coordinator (memory only). Records are kept per track and per vehicle model from the start. |
 | 2026-11-16 | Commands (B-4): one runner and one command list for three entry points (console `onConsoleInput`, chat `onChatMessage`, plugins `vracerMP_command`). Commands call public coordinator methods (`createRace`, `registerPlayer`, `unregisterPlayer`, `configureRace`, `startRace`, `cancelRace`, `addFakeRacer`); the client handlers reuse them, so the UI and commands follow the same rules. The console and plugins act as `Race.SERVER`, which owns the races it creates and passes every owner check. Tracks come from the clients (`requestLobbies.tracks`) into a `TrackDirectory` in memory. `help` and `docs/commands.md` are both built from `commandList`; a test fails when the document is out of date. Plugin events go through an injected `pluginEvents` edge (`MP.TriggerGlobalEvent`, JSON strings). |
+| 2026-11-16 | Race UI split into three apps (B-2): race info (top left), deltas (centre) and laps with Retire (top right). Delta timing lives in Lua (`DeltaDisplay`: shown 3.2 s per gap kind); the app only fades on `isShown`, keeping the text while it fades out. The layout installer now remembers each app per layout (`installedLayouts.json`: `{ layout: { app: true } }`; the old `true` counts as the four pre-B-2 apps), so apps added by a new version appear once, and it removes retired apps, taking their positions from the saved layout (BeamNG's `removeApp` works on that copy). Results rows share one fixed column grid in rem, so the smaller header font no longer shrinks its columns. New time format `mm'ss".fff` (`h:` past an hour) on screen and in chat. |

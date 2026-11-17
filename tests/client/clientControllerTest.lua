@@ -4,7 +4,9 @@
 local t = require("tests/testRunner")
 
 local MY_ID = 4
-local stubs = { uiEvents = {}, serverMessages = {}, serverHandlers = {}, addedApps = {}, editing = false }
+local LAYOUT_FILE = "/settings/ui_apps/layouts/default/beammp.uilayout.json"
+local stubs = { uiEvents = {}, serverMessages = {}, serverHandlers = {}, addedApps = {}, removedAppIndexes = {},
+  editing = false, files = {}, layoutApps = {} }
 
 local RACE_DATA = {
   name = "Circuito", classification = { closed = true }, defaultLaps = 2, startNode = 1,
@@ -19,9 +21,9 @@ local function installGlobals()
   jsonReadFile = function(path)
     if path == MISSION .. "/info.json" then return INFO end
     if path == MISSION .. "/race.race.json" then return RACE_DATA end
-    return nil
+    return stubs.files[path]
   end
-  jsonWriteFile = function() end
+  jsonWriteFile = function(path, data) stubs.files[path] = data end
   jsonEncode = function(value) return value end -- messages stay tables in tests
   getCurrentLevelIdentifier = function() return "testlevel" end
   guihooks = { trigger = function(eventName, view) table.insert(stubs.uiEvents, { eventName = eventName, view = view }) end }
@@ -40,32 +42,35 @@ local function installGlobals()
   extensions = {
     load = function() end,
     ui_appLayouts = {
-      getCurrentLayout = function() return { filename = "/settings/ui_apps/layouts/default/beammp.uilayout.json", apps = {} } end,
+      getCurrentLayout = function() return { filename = LAYOUT_FILE, apps = stubs.layoutApps } end,
+      getAvailableLayouts = function() return { { filename = LAYOUT_FILE, apps = stubs.layoutApps } } end,
       addApp = function(filename, appName) table.insert(stubs.addedApps, appName) return true end,
+      removeApp = function(filename, index) table.insert(stubs.removedAppIndexes, index) return true end,
       setCurrentLayout = function() end,
       isEditing = function() return stubs.editing end,
     },
   }
 end
 
--- Fake race session: enough for the race panel.
+-- Fake race session: enough for the race apps.
 local FakeSession = {}
 FakeSession.__index = FakeSession
 FakeSession.state = { gridding = "gridding", countdown = "countdown", racing = "racing", finished = "finished" }
-function FakeSession.new(track, startInfo) return setmetatable({ raceId = startInfo.raceId, state = "gridding", laps = startInfo.laps }, FakeSession) end
+function FakeSession.new(track, startInfo)
+  return setmetatable({ track = track, raceId = startInfo.raceId, state = "gridding", laps = startInfo.laps }, FakeSession)
+end
 function FakeSession:placeOnGrid() return true end
 function FakeSession:beginCountdown() self.state = "countdown" end
 function FakeSession:go() self.state = "racing" return true end
 function FakeSession:update() return nil end
 function FakeSession:render() end
-function FakeSession:applyGap() end
 function FakeSession:applyStandings() end
 function FakeSession:applyFinish() self.state = "finished" end
 function FakeSession:applyPenalty(penalty) self.penaltyMs = penalty.totalPenaltyMs end
 function FakeSession:dispose() end
 function FakeSession:getHudData()
-  return { position = 1, racerCount = 2, currentLap = 1, laps = self.laps, raceTimeMs = 1000, pathnodesPassed = 0,
-    pathnodeCount = 2, penaltyMs = self.penaltyMs }
+  return { position = 1, racerCount = 2, currentLap = 1, laps = self.laps, raceTimeMs = 1000, currentLapMs = 1000,
+    pathnodesPassed = 0, pathnodeCount = 2, penaltyMs = self.penaltyMs, state = self.state }
 end
 
 -- Fake start area markers: remember which tracks were marked last frame.
@@ -109,10 +114,12 @@ local function runFrames(count, dt)
   for _ = 1, count do controller:update(dt or 0.1, dt or 0.1) end
 end
 
-t.test("installs the four apps into the current layout once", function()
+t.test("installs our six apps into the current layout once", function()
   runFrames(1)
-  t.assertEquals(#stubs.addedApps, 4)
-  t.assertEquals(stubs.addedApps[1], "vracermpRacePanel")
+  t.assertEquals(#stubs.addedApps, 6)
+  t.assertEquals(stubs.addedApps[1], "vracermpRaceInfo")
+  runFrames(30) -- the layout is checked again every 2 s
+  t.assertEquals(#stubs.addedApps, 6, "never added twice")
 end)
 
 t.test("asks for the races with the map's tracks until the server welcomes us", function()
@@ -137,7 +144,7 @@ t.test("the lobby shows the track's server lap record", function()
   serverSends("vracerMP_lapRecord", { missionId = "testlevel/timeTrial/001-Test", trackName = "Circuito",
     lapTimeMs = 84120, name = "Ana", model = "etk800" })
   runFrames(1)
-  t.assertEquals(lastUiView("VRacerMPLobby").serverRecordText, "Server record: 1:24.120 - Ana (etk800)")
+  t.assertEquals(lastUiView("VRacerMPLobby").serverRecordText, "Server record: 01'24\".120 - Ana (etk800)")
 end)
 
 t.test("in a start area the lobby app offers registration", function()
@@ -189,16 +196,29 @@ t.test("countdown and race panel follow the start", function()
   serverSends("vracerMP_go", { raceId = "r-1" })
   runFrames(1, 0.01)
   t.assertEquals(lastUiView("VRacerMPCountdown").text, "GO!")
-  t.assertEquals(lastUiView("VRacerMPRace").lap, "1 / 2")
-  t.assertTrue(lastUiView("VRacerMPRace").canRetire)
+  t.assertEquals(lastUiView("VRacerMPLaps").lapsText, "Laps: 1/2")
+  t.assertTrue(lastUiView("VRacerMPLaps").canRetire)
+  t.assertEquals(lastUiView("VRacerMPRaceInfo").placeText, "1st")
+  t.assertEquals(lastUiView("VRacerMPRaceInfo").serverRecordText, "Server Record - Ana: 01'24\".120")
   controller:render(0.016, 0.016)
   t.assertEquals(#controller.startAreaMarkers.shownTracks, 0, "no start markers while racing")
 end)
 
-t.test("a penalty from the server shows on the race panel", function()
+t.test("a penalty from the server shows in the race info", function()
   serverSends("vracerMP_penalty", { raceId = "r-1", reason = "testPenalty", penaltyMs = 85000, totalPenaltyMs = 85000 })
   runFrames(1)
-  t.assertEquals(lastUiView("VRacerMPRace").penaltyText, "Penalty +1:25.000")
+  t.assertEquals(lastUiView("VRacerMPRaceInfo").penaltyText, "Penalty: +01'25\".000")
+end)
+
+t.test("a gap shows its delta for 3.2 s", function()
+  serverSends("vracerMP_gap", { raceId = "r-1", kind = "ahead", gapMs = 842 })
+  runFrames(1)
+  local deltas = lastUiView("VRacerMPDeltas")
+  t.assertEquals(deltas.ahead.text, "+0\".842")
+  t.assertTrue(deltas.ahead.isShown)
+  t.assertEquals(deltas.behind.isShown, false)
+  runFrames(33)
+  t.assertEquals(lastUiView("VRacerMPDeltas").ahead.isShown, false)
 end)
 
 t.test("retire button sends unregister for our race", function()
@@ -209,7 +229,7 @@ end)
 t.test("results of a race we left do not end our new race", function()
   serverSends("vracerMP_raceResults", { raceId = "r-old", laps = 1, raceTrack = { name = "Old" }, racers = {} })
   runFrames(1)
-  t.assertEquals(lastUiView("VRacerMPRace").visible, true, "still racing r-1")
+  t.assertEquals(lastUiView("VRacerMPRaceInfo").visible, true, "still racing r-1")
 end)
 
 t.test("results show at the end and close on the button", function()
@@ -217,7 +237,9 @@ t.test("results show at the end and close on the button", function()
     racers = { { position = 1, name = "Me", status = "finished", raceStats = { totalTime = 90000, bestLapTime = 44000, gapToWinner = 0 } } } })
   runFrames(1)
   t.assertTrue(lastUiView("VRacerMPResults").visible)
-  t.assertEquals(lastUiView("VRacerMPRace").visible, false)
+  t.assertEquals(lastUiView("VRacerMPRaceInfo").visible, false)
+  t.assertEquals(lastUiView("VRacerMPLaps").visible, false)
+  t.assertEquals(lastUiView("VRacerMPDeltas").visible, false)
   controller:handleUiAction({ action = "closeResults" })
   runFrames(1)
   t.assertEquals(lastUiView("VRacerMPResults").visible, false)
@@ -237,7 +259,8 @@ end)
 t.test("layout editor shows sample content in every app", function()
   stubs.editing = true
   runFrames(1)
-  t.assertEquals(lastUiView("VRacerMPRace").position, "P2")
+  t.assertEquals(lastUiView("VRacerMPRaceInfo").placeText, "2nd")
+  t.assertTrue(lastUiView("VRacerMPDeltas").ahead.isShown)
   stubs.editing = false
 end)
 
@@ -249,4 +272,20 @@ end)
 
 package.loaded["vracerMP/race/raceSession"] = nil
 package.loaded["vracerMP/tracks/startAreaMarkers"] = nil
+t.test("an older layout gets the new apps once and loses the old race panel", function()
+  local layoutInstaller = require("vracerMP/ui/layoutInstaller")
+  stubs.files["/settings/vracerMP/installedLayouts.json"] = { [LAYOUT_FILE] = true } -- before B-2
+  stubs.layoutApps = { { appName = "vracermpLobby" }, { appName = "vracermpRacePanel" }, { appName = "vracermpResults" } }
+  stubs.addedApps, stubs.removedAppIndexes = {}, {}
+  layoutInstaller.installIntoCurrentLayout()
+  t.assertEquals(#stubs.addedApps, 3, "race info, deltas and laps")
+  t.assertEquals(stubs.addedApps[2], "vracermpDeltas")
+  t.assertEquals(#stubs.removedAppIndexes, 1)
+  t.assertEquals(stubs.removedAppIndexes[1], 1, "0-based position of the race panel")
+  stubs.layoutApps = { { appName = "vracermpLobby" }, { appName = "vracermpResults" } }
+  layoutInstaller.installIntoCurrentLayout()
+  t.assertEquals(#stubs.addedApps, 3, "nothing more to add")
+  t.assertEquals(#stubs.removedAppIndexes, 1, "nothing more to remove")
+end)
+
 return t.runAll("clientController")

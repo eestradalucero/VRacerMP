@@ -36,7 +36,7 @@ end
 -- "Server record: 1:24.120 - Ana (etk800)" (B-8), or nil when the track has none yet.
 local function getServerRecordText(record)
   if not record then return nil end
-  return string.format("Server record: %s - %s (%s)", timeFormat.formatHudTime(record.lapTimeMs),
+  return string.format("Server record: %s - %s (%s)", timeFormat.formatDisplayTime(record.lapTimeMs),
     tostring(record.name), tostring(record.model))
 end
 

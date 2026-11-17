@@ -17,7 +17,7 @@ See [docs/requirements.md](docs/requirements.md) for what is planned.
   green gap to the car behind.
 - DNF when the timeout after the winner runs out, on disconnect, or when leaving the race.
 - Results panel in game, and the results as JSON in the server chat (no files on the server).
-- BeamNG-native UI apps (race panel, lobby, countdown, results). They appear automatically the
+- BeamNG-native UI apps (race info, deltas, laps and retire, lobby, countdown, results). They appear automatically the
   first time, like BeamMP's chat; move or remove them in BeamNG's UI layout editor, where they
   show sample content so they are easy to find.
 
@@ -39,7 +39,7 @@ to the server console. The plugin writes no files.
    ("Close VRacerMP results", handy on a wheel button).
 4. Each track keeps a server lap record since the server started, shown in the lobby panel and
    announced in chat when broken.
-5. To drop out, press **Retire** on the race panel and confirm. You are DNF and stay in the
+5. To drop out, press **Retire** (top right, next to the laps) and confirm. You are DNF and stay in the
    results, and you can register for another race straight away. If every racer drops out, the
    race ends (before GO it is simply cancelled) and the track is free again.
 

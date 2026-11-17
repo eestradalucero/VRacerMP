@@ -40,8 +40,6 @@ function RaceSession.new(track, startInfo, vehicleId)
   self.raceTimeMs = 0
   self.position = startInfo.gridSlot
   self.racerCount = startInfo.racerCount
-  self.aheadGapMs = nil
-  self.behindGapMs = nil
   self.finishInfo = nil
   self.penaltyMs = 0
   return self
@@ -130,14 +128,6 @@ function RaceSession:applyStandings(standings, myPlayerId)
   end
 end
 
-function RaceSession:applyGap(gap)
-  if gap.kind == "ahead" then
-    self.aheadGapMs = gap.gapMs
-  else
-    self.behindGapMs = gap.gapMs
-  end
-end
-
 -- penalty payload: the server gave us a time penalty.
 function RaceSession:applyPenalty(penalty)
   self.penaltyMs = penalty.totalPenaltyMs or self.penaltyMs
@@ -182,11 +172,10 @@ function RaceSession:getHudData()
     currentLap = getCurrentLap(self),
     laps = self.laps,
     raceTimeMs = self.raceTimeMs,
+    currentLapMs = self.raceTimeMs - self.lastLapEndMs,
     bestLapMs = getBestLapMs(self.lapTimesMs),
     pathnodesPassed = getPathnodesPassedThisLap(self),
     pathnodeCount = self.track.pathnodeCount,
-    aheadGapMs = self.aheadGapMs,
-    behindGapMs = self.behindGapMs,
     penaltyMs = self.penaltyMs,
     finishInfo = self.finishInfo,
   }

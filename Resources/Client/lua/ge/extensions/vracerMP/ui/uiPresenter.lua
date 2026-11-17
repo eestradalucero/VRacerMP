@@ -1,6 +1,6 @@
 -- VRacerMP client: class UiPresenter, sends view models to the Vue apps (architecture §6.1).
 -- Pure: the sending function is injected. A view is sent only when it changed; the race
--- panel, whose clock changes every frame, at most 20 times per second.
+-- info, whose clocks change every frame, at most 20 times per second.
 
 local jsonEncoder = require("vracerMP/shared/jsonEncoder")
 
@@ -9,7 +9,9 @@ UiPresenter.__index = UiPresenter
 
 UiPresenter.channels = {
   lobby = { eventName = "VRacerMPLobby", minIntervalSeconds = 0 },
-  race = { eventName = "VRacerMPRace", minIntervalSeconds = 0.05 },
+  raceInfo = { eventName = "VRacerMPRaceInfo", minIntervalSeconds = 0.05 },
+  deltas = { eventName = "VRacerMPDeltas", minIntervalSeconds = 0 },
+  laps = { eventName = "VRacerMPLaps", minIntervalSeconds = 0 },
   countdown = { eventName = "VRacerMPCountdown", minIntervalSeconds = 0 },
   results = { eventName = "VRacerMPResults", minIntervalSeconds = 0 },
 }
@@ -35,7 +37,7 @@ local function presentChannel(self, channelName, view, dtReal)
   self.secondsSinceSentByChannel[channelName] = 0
 end
 
--- views = { lobby, race, countdown, results }, each a view model table.
+-- views = { lobby, raceInfo, deltas, laps, countdown, results }, each a view model table.
 function UiPresenter:present(views, dtReal)
   for channelName in pairs(UiPresenter.channels) do
     presentChannel(self, channelName, views[channelName] or { visible = false }, dtReal or 0)
