@@ -40,9 +40,16 @@ local function getServerRecordText(record)
     tostring(record.name), tostring(record.model))
 end
 
+-- "Track 2 of 4 here" when several tracks share the start area (B-13), else nil.
+local function getTrackChoiceText(trackChoice)
+  if not trackChoice or trackChoice.count < 2 then return nil end
+  return string.format("Track %d of %d here", trackChoice.index, trackChoice.count)
+end
+
 -- track: TrackInfo of the start area (or of our race). lobby: its lobby, or nil.
 -- lapRecord: the track's server lap record, or nil.
-local function build(track, lobby, myPlayerId, lapRecord)
+-- trackChoice: { index, count } at a start area (B-13), nil once we are in a race.
+local function build(track, lobby, myPlayerId, lapRecord, trackChoice)
   if not track then return HIDDEN end
   local isRegistrationOpen = lobby == nil or lobby.state == "registering"
   local isRegistered = LobbyStore.isPlayerRegistered(lobby, myPlayerId)
@@ -50,6 +57,10 @@ local function build(track, lobby, myPlayerId, lapRecord)
   return {
     visible = true,
     trackName = track.name,
+    trackDescription = track.description, -- B-13: from the mission, nil when it has none
+    trackPreviewPath = track.previewPath,
+    trackChoiceText = getTrackChoiceText(trackChoice),
+    canChooseTrack = getTrackChoiceText(trackChoice) ~= nil,
     statusText = getStatusText(lobby),
     hasRace = lobby ~= nil,
     isRegistrationOpen = isRegistrationOpen,

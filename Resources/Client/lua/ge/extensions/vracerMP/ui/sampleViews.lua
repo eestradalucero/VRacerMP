@@ -8,7 +8,10 @@ local resultsView = require("vracerMP/ui/resultsView")
 
 local M = {}
 
-local SAMPLE_TRACK = { name = "Sample Circuit", closed = true, defaultLaps = 3 }
+local SAMPLE_TRACK = {
+  name = "Sample Circuit", closed = true, defaultLaps = 3,
+  description = "The track's mission description appears here, under its preview picture.",
+}
 
 local SAMPLE_LOBBY = {
   raceId = "sample", state = "registering", ownerId = 1, laps = 3, dnfTimeoutSeconds = 120,
@@ -41,7 +44,7 @@ local SAMPLE_RESULTS = {
 
 local function build()
   return {
-    lobby = lobbyView.build(SAMPLE_TRACK, SAMPLE_LOBBY, 1, SAMPLE_RECORD),
+    lobby = lobbyView.build(SAMPLE_TRACK, SAMPLE_LOBBY, 1, SAMPLE_RECORD, { index = 2, count = 4 }),
     raceInfo = raceInfoView.build(SAMPLE_HUD, SAMPLE_RECORD),
     deltas = SAMPLE_DELTAS,
     laps = lapsView.build(SAMPLE_HUD),

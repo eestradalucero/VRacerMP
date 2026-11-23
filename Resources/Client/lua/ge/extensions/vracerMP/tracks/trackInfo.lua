@@ -52,14 +52,24 @@ local function readDefaultLaps(info, raceData, isClosed)
   return raceData.defaultLaps or missionTypeData.defaultLaps or 1
 end
 
+local function isNonEmptyString(value)
+  return type(value) == "string" and value ~= ""
+end
+
 -- missionFolder: the folder holding info.json, e.g. "/gameplay/missions/<level>/timeTrial/<mission>/"
-function TrackInfo.fromMissionFiles(missionFolder, info, raceData)
+-- missionTexts (optional): { title, description, previewPath }, the mission's title and
+-- description already translated, and its preview picture (B-13). The track is named after
+-- the mission, as BeamNG's map shows it; race files are often just called "Path".
+function TrackInfo.fromMissionFiles(missionFolder, info, raceData, missionTexts)
+  missionTexts = missionTexts or {}
   local self = setmetatable({}, TrackInfo)
   local classification = raceData.classification or {}
   self.missionId = getMissionId(missionFolder)
   self.raceFilePath = (missionFolder:gsub("/+$", "")) .. "/race.race.json"
   self.level = (info.startTrigger and info.startTrigger.level) or self.missionId:match("^[^/]+")
-  self.name = raceData.name or info.name or self.missionId
+  self.name = (isNonEmptyString(missionTexts.title) and missionTexts.title) or raceData.name or info.name or self.missionId
+  self.description = isNonEmptyString(missionTexts.description) and missionTexts.description or nil
+  self.previewPath = missionTexts.previewPath
   self.closed = classification.closed == true
   self.branching = classification.branching == true
   self.defaultLaps = readDefaultLaps(info, raceData, self.closed)

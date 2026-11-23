@@ -37,6 +37,21 @@ t.test("reads ids, names, laps and start area", function()
   t.assertTrue(track:isRaceable())
 end)
 
+t.test("the mission's title, description and preview win over the race file (B-13)", function()
+  local raceData = newRaceData(true)
+  raceData.name = "Path" -- BeamNG's own race files are often called this
+  local track = TrackInfo.fromMissionFiles(FOLDER, info, raceData, {
+    title = "Forgotten Raceway", description = "A route through the access roads.",
+    previewPath = FOLDER .. "preview.jpg" })
+  t.assertEquals(track.name, "Forgotten Raceway")
+  t.assertEquals(track.description, "A route through the access roads.")
+  t.assertEquals(track.previewPath, FOLDER .. "preview.jpg")
+  local untitled = TrackInfo.fromMissionFiles(FOLDER, info, newRaceData(true), { title = "", description = "" })
+  t.assertEquals(untitled.name, "Circuito Bronco Short Course", "no mission title: the race name")
+  t.assertNil(untitled.description)
+  t.assertNil(untitled.previewPath)
+end)
+
 t.test("closed tracks count every visible pathnode as a crossing", function()
   local track = TrackInfo.fromMissionFiles(FOLDER, info, newRaceData(true))
   t.assertEquals(track.pathnodeCount, 3)
@@ -50,8 +65,8 @@ end)
 
 t.test("start area watcher finds the track the car is in", function()
   local track = TrackInfo.fromMissionFiles(FOLDER, info, newRaceData(true))
-  t.assertEquals(startAreaWatcher.findTrackAtPosition({ x = 252, y = 4040, z = 130 }, { track }), track)
-  t.assertNil(startAreaWatcher.findTrackAtPosition({ x = 300, y = 4040, z = 130 }, { track }))
+  t.assertEquals(startAreaWatcher.findTracksAtPosition({ x = 252, y = 4040, z = 130 }, { track })[1], track)
+  t.assertEquals(#startAreaWatcher.findTracksAtPosition({ x = 300, y = 4040, z = 130 }, { track }), 0)
 end)
 
 return t.runAll("trackInfo")

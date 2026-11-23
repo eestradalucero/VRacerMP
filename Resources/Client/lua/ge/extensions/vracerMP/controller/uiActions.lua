@@ -56,6 +56,11 @@ local function changeDnfTimeout(controller, action)
   sendSettingChange(controller, "dnfTimeoutSeconds", action.delta, NO_DNF_LIMIT)
 end
 
+-- The lobby's arrows at a start area shared by several tracks (B-13).
+local function chooseTrack(controller, action)
+  controller:chooseTrack(action.delta)
+end
+
 local function closeResults(controller)
   controller:closeResults()
 end
@@ -72,6 +77,7 @@ local handlers = {
   retire = retire,
   changeLaps = changeLaps,
   changeDnfTimeout = changeDnfTimeout,
+  chooseTrack = chooseTrack,
   closeResults = closeResults,
   refresh = refresh,
 }

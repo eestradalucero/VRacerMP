@@ -225,7 +225,8 @@ Resources/
       tracks/trackCatalog.lua         -- finds race files for the current level (edge: files)
       tracks/trackInfo.lua            -- class TrackInfo (info.json + race.race.json, pure)
       tracks/gridBuilder.lua          -- grid slots, generated fallback (pure)
-      tracks/startAreaWatcher.lua     -- which start area is the car in (pure)
+      tracks/startAreaWatcher.lua     -- which start areas the car is in, closest first (pure)
+      tracks/startAreaChoice.lua      -- class: the track picked at a shared start area (pure, B-13)
       tracks/startAreaVisibility.lua  -- which start areas show a marker: open for registration (pure, REG-13)
       tracks/startAreaMarkers.lua     -- the only file that touches BeamNG's missionMarker (column fallback)
       lobby/lobbyStore.lua            -- class LobbyStore: latest lobby of every race (pure)
@@ -403,7 +404,7 @@ session bar top-centre, chat bottom-left):
 | Race info | top 10px, left 10px, 340 × 190 (the panel hugs its content, anchored top left) |
 | Deltas | centred, top 20%, 300 × 100 |
 | Laps | top 10px, right 10px, 420 × 50 (anchored top right; the Retire question grows to the left) |
-| Lobby | top 290px, right 320px, 330 × 360 |
+| Lobby | top 290px, right 320px, 330 × 540 (picture and description, B-13) |
 | Countdown | centred, top 18%, 420 × 260 |
 | Results | centred, top 14%, 860 × 440 |
 
@@ -451,3 +452,5 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-16 | Commands (B-4): one runner and one command list for three entry points (console `onConsoleInput`, chat `onChatMessage`, plugins `vracerMP_command`). Commands call public coordinator methods (`createRace`, `registerPlayer`, `unregisterPlayer`, `configureRace`, `startRace`, `cancelRace`, `addFakeRacer`); the client handlers reuse them, so the UI and commands follow the same rules. The console and plugins act as `Race.SERVER`, which owns the races it creates and passes every owner check. Tracks come from the clients (`requestLobbies.tracks`) into a `TrackDirectory` in memory. `help` and `docs/commands.md` are both built from `commandList`; a test fails when the document is out of date. Plugin events go through an injected `pluginEvents` edge (`MP.TriggerGlobalEvent`, JSON strings). |
 | 2026-11-16 | Race UI split into three apps (B-2): race info (top left), deltas (centre) and laps with Retire (top right). Delta timing lives in Lua (`DeltaDisplay`: shown 3.2 s per gap kind); the app only fades on `isShown`, keeping the text while it fades out. The layout installer now remembers each app per layout (`installedLayouts.json`: `{ layout: { app: true } }`; the old `true` counts as the four pre-B-2 apps), so apps added by a new version appear once, and it removes retired apps, taking their positions from the saved layout (BeamNG's `removeApp` works on that copy). Results rows share one fixed column grid in rem, so the smaller header font no longer shrinks its columns. New time format `mm'ss".fff` (`h:` past an hour) on screen and in chat. |
 | 2026-11-16 | Plugin interface v2 (B-12, requested by VracerControl): `vracerMP_query` answers with `vracerMP_queryReply` through the same entry points as commands; the payloads live in `pluginPayloads` so the coordinator can publish `vracerMP_tracksUpdated` with the same track entries (only when `TrackDirectory:reportTracks` reports new tracks). `finish` = `Race:stopRemainingRacers` (DNF `stopped`, sharing the DNF-timeout code) + the usual `concludeRacers`, so the race ends exactly like a normal finish. `remove --all` unregisters fake racers first, so the race ends only after the last real player (FIN-9). |
+| 2026-11-23 | Shared start areas (B-13): `startAreaWatcher` returns every track around the car, closest first (ties by name, so the order is stable); `StartAreaChoice` keeps the picked track by mission id while it is still around, and starts on a track with a race taking registrations so players join the same race. The lobby's arrows send `chooseTrack {delta}`. Markers are unchanged: tracks at one spot draw their markers in the same place. |
+| 2026-11-23 | Mission texts (B-13): `trackCatalog` (edge) translates the mission title and description with `core_locales.translate` (plain text comes back unchanged) and finds the preview like BeamNG's missions module (`preview.jpg/.png/.jpeg` in the mission folder); `TrackInfo` stays pure and takes them as `missionTexts`. The lobby app shows the picture from its game path. |
