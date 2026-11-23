@@ -13,6 +13,7 @@ local testFiles = {
   "tests/server/commandsTest.lua",
   "tests/client/gridBuilderTest.lua",
   "tests/client/trackInfoTest.lua",
+  "tests/client/startAreaChoiceTest.lua",
   "tests/client/lobbyStoreTest.lua",
   "tests/client/uiViewsTest.lua",
   "tests/client/countdownAndPresenterTest.lua",

@@ -8,6 +8,7 @@ local M = {}
 local logTag = "vracerMP.tracks"
 local MISSIONS_ROOT = "/gameplay/missions/"
 local TIME_TRIAL_FOLDER = "/timeTrial/"
+local PREVIEW_FILE_NAMES = { "/preview.jpg", "/preview.png", "/preview.jpeg" } -- as BeamNG looks for them
 
 local function findTimeTrialInfoFiles()
   local infoFiles = {}
@@ -24,13 +25,36 @@ local function isForLevel(info, levelName)
   return type(trigger.level) == "string" and trigger.level:lower() == levelName:lower()
 end
 
+-- Mission titles and descriptions are often translation keys ("missions.<level>...title");
+-- plain text comes back unchanged.
+local function translate(text)
+  if type(text) ~= "string" or text == "" then return nil end
+  if core_locales and core_locales.translate then return core_locales.translate(text, text) end
+  return text
+end
+
+local function findPreviewPath(missionFolder)
+  for _, fileName in ipairs(PREVIEW_FILE_NAMES) do
+    if FS:fileExists(missionFolder .. fileName) then return missionFolder .. fileName end
+  end
+  return nil
+end
+
+local function readMissionTexts(missionFolder, info)
+  return {
+    title = translate(info.name),
+    description = translate(info.description),
+    previewPath = findPreviewPath(missionFolder),
+  }
+end
+
 local function loadTrack(infoPath, levelName)
   local info = jsonReadFile(infoPath)
   if not info or info.missionType ~= "timeTrial" or not isForLevel(info, levelName) then return nil end
   local missionFolder = infoPath:match("^(.*)/info%.json$")
   local raceData = jsonReadFile(missionFolder .. "/race.race.json")
   if not raceData then return nil end
-  local track = TrackInfo.fromMissionFiles(missionFolder, info, raceData)
+  local track = TrackInfo.fromMissionFiles(missionFolder, info, raceData, readMissionTexts(missionFolder, info))
   if not track:isRaceable() then
     log('W', logTag, "skipping " .. track.missionId .. ": branching, no pathnodes or no start position")
     return nil

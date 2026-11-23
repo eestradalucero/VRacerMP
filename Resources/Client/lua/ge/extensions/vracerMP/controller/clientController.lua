@@ -6,6 +6,8 @@ local protocol = require("vracerMP/shared/protocol")
 local clientNetwork = require("vracerMP/network/clientNetwork")
 local trackCatalog = require("vracerMP/tracks/trackCatalog")
 local startAreaWatcher = require("vracerMP/tracks/startAreaWatcher")
+local StartAreaChoice = require("vracerMP/tracks/startAreaChoice")
+local StartAreaChoice = require("vracerMP/tracks/startAreaChoice")
 local startAreaVisibility = require("vracerMP/tracks/startAreaVisibility")
 local StartAreaMarkers = require("vracerMP/tracks/startAreaMarkers")
 local LobbyStore = require("vracerMP/lobby/lobbyStore")
@@ -53,6 +55,7 @@ function ClientController.new()
   self.isWelcomed = false -- the server answered our lobby request
   self.secondsUntilLobbyRequest = 0
   self.trackAtStartArea = nil
+  self.startAreaChoice = StartAreaChoice.new() -- shared start areas (B-13)
   self.panelTrack = nil
   self.panelLobby = nil
   self.secondsUntilStartAreaCheck = 0
@@ -247,13 +250,20 @@ function ClientController:closeResults()
   self.secondsUntilResultsClose = nil
 end
 
+-- The lobby's arrows at a shared start area (B-13): +1 next track, -1 previous.
+function ClientController:chooseTrack(delta)
+  self.startAreaChoice:step(delta)
+  self.trackAtStartArea = self.startAreaChoice:getChosenTrack()
+end
+
 function ClientController:resendUi()
   self.presenter:resendAll()
 end
 
--- The lobby to show: the race we joined, else the race at the start area we are in.
+-- The lobby to show: the race we joined, else the race of the track picked at the start
+-- area we are in. panelTrackChoice: { index, count } only in a start area (B-13).
 local function refreshPanelTrackAndLobby(self, myPlayerId)
-  self.panelTrack, self.panelLobby = nil, nil
+  self.panelTrack, self.panelLobby, self.panelTrackChoice = nil, nil, nil
   if isRacingNow(self) then return end
   local myLobby = self.lobbyStore:findLobbyOfPlayer(myPlayerId)
   if myLobby then
@@ -261,6 +271,7 @@ local function refreshPanelTrackAndLobby(self, myPlayerId)
   elseif self.trackAtStartArea then
     self.panelTrack = self.trackAtStartArea
     self.panelLobby = self.lobbyStore:findLobbyForTrack(self.trackAtStartArea.missionId)
+    self.panelTrackChoice = self.startAreaChoice:getPosition()
   end
 end
 
@@ -270,7 +281,7 @@ local function buildViews(self)
   refreshPanelTrackAndLobby(self, myPlayerId)
   return {
     lobby = lobbyView.build(self.panelTrack, self.panelLobby, myPlayerId,
-      self.panelTrack and self.lapRecordStore:findRecord(self.panelTrack.missionId)),
+      self.panelTrack and self.lapRecordStore:findRecord(self.panelTrack.missionId), self.panelTrackChoice),
     raceInfo = self.session and raceInfoView.build(self.session:getHudData(),
       self.lapRecordStore:findRecord(self.session.track.missionId)) or raceInfoView.HIDDEN,
     deltas = self.deltaDisplay:getView(self.session ~= nil),
@@ -309,7 +320,9 @@ local function refreshStartArea(self, dtReal)
   if self.secondsUntilStartAreaCheck > 0 then return end
   self.secondsUntilStartAreaCheck = START_AREA_CHECK_SECONDS
   local position = playerVehicle.getPosition()
-  self.trackAtStartArea = position and startAreaWatcher.findTrackAtPosition(position, self.tracks) or nil
+  local tracksHere = position and startAreaWatcher.findTracksAtPosition(position, self.tracks) or {}
+  self.startAreaChoice:update(tracksHere, self.lobbyStore)
+  self.trackAtStartArea = self.startAreaChoice:getChosenTrack()
 end
 
 local function updateSession(self, dtSim)

@@ -1,12 +1,24 @@
 <!--
   VRacerMP lobby (REG-1 .. REG-6): shown at a track's start area or while registered.
-  Also shows the track's server lap record (B-8).
+  Also shows the track's server lap record (B-8). When several tracks share the start area,
+  arrows beside the name pick the track (B-13). The mission's preview picture and description
+  show under the name when the mission has them.
   Lua sends what to show and what the player may do in the "VRacerMPLobby" event;
   buttons are sent back as actions to vracerMP_main.handleUiAction.
 -->
 <template>
   <div v-if="view.visible" class="vracermp-lobby">
-    <div class="track-name">{{ view.trackName }}</div>
+    <div v-if="view.canChooseTrack" class="track-picker">
+      <BngButton accent="outlined" class="step" @click="sendAction('chooseTrack', { delta: -1 })">&lsaquo;</BngButton>
+      <div class="track-picker-name">
+        <div class="track-name">{{ view.trackName }}</div>
+        <div class="track-choice">{{ view.trackChoiceText }}</div>
+      </div>
+      <BngButton accent="outlined" class="step" @click="sendAction('chooseTrack', { delta: 1 })">&rsaquo;</BngButton>
+    </div>
+    <div v-else class="track-name">{{ view.trackName }}</div>
+    <img v-if="view.trackPreviewPath" class="track-preview" :src="view.trackPreviewPath" alt="" />
+    <div v-if="view.trackDescription" class="track-description">{{ view.trackDescription }}</div>
     <div class="status">{{ view.statusText }}</div>
     <div v-if="view.serverRecordText" class="server-record">{{ view.serverRecordText }}</div>
     <div v-if="view.ownerText" class="server-record">{{ view.ownerText }}</div>
@@ -169,5 +181,35 @@ onMounted(() => sendAction("refresh"))
   flex-wrap: wrap;
   gap: 0.4em;
   margin-top: auto;
+}
+
+.track-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.track-picker-name {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.track-choice {
+  font-size: 0.85em;
+  color: var(--bng-cool-gray-300);
+}
+
+.track-preview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--bng-corners-1, 3px);
+}
+
+.track-description {
+  font-size: 0.85em;
+  line-height: 1.4;
+  color: var(--bng-cool-gray-200, #d6dae0);
 }
 </style>

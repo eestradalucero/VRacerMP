@@ -1,4 +1,5 @@
--- VRacerMP client: which track's start area is the car in? Pure: plain positions.
+-- VRacerMP client: which tracks' start areas is the car in? Pure: plain positions.
+-- Several tracks can share a start area (e.g. Hirochi Raceway); the player picks one (B-13).
 
 local M = {}
 
@@ -7,20 +8,26 @@ local function getSquaredDistance(position, area)
   return dx * dx + dy * dy + dz * dz
 end
 
--- position = { x, y, z }. Returns the track whose start area contains the position
--- (the closest one if areas overlap), or nil.
-local function findTrackAtPosition(position, tracks)
-  local closestTrack, closestDistance = nil, math.huge
+-- position = { x, y, z }. Returns every track whose start area contains the position,
+-- closest start first (ties by name, so the order never flickers). Empty when none.
+local function findTracksAtPosition(position, tracks)
+  local found = {}
   for _, track in ipairs(tracks) do
     local area = track.startArea
     local squaredDistance = getSquaredDistance(position, area)
-    if squaredDistance <= area.radius * area.radius and squaredDistance < closestDistance then
-      closestTrack, closestDistance = track, squaredDistance
+    if squaredDistance <= area.radius * area.radius then
+      table.insert(found, { track = track, squaredDistance = squaredDistance })
     end
   end
-  return closestTrack
+  table.sort(found, function(a, b)
+    if a.squaredDistance ~= b.squaredDistance then return a.squaredDistance < b.squaredDistance end
+    return a.track.name < b.track.name
+  end)
+  local tracksHere = {}
+  for index, entry in ipairs(found) do tracksHere[index] = entry.track end
+  return tracksHere
 end
 
-M.findTrackAtPosition = findTrackAtPosition
+M.findTracksAtPosition = findTracksAtPosition
 
 return M

@@ -62,6 +62,8 @@ and the race results sent to the server chat as JSON.
 | REG-10 | Default lap count comes from `race.race.json → defaultLaps`. | MVP | Proposed |
 | REG-11 | Several races, on different tracks, can exist and run at the same time. The data model and protocol support it from day one; the UI may expose one race per track. | Later (design: MVP) | Agreed |
 | REG-12 | A player who finished or retired is free to register for another race, even while their old race goes on. Results of a race they left do not interrupt their new race. | MVP | Agreed |
+| REG-14 | **Shared start areas (B-13).** When several tracks' start areas contain the car, the lobby shows ‹ › arrows and "Track 2 of 4 here" to pick the track. It starts on a track whose race takes registrations, else on the closest; the pick stays while the car is in the area. Each track can have its own race. | MVP | Agreed |
+| REG-15 | **Track name, picture and description (B-13).** A track is named after its mission title, translated like BeamNG's map (the race file's name only when the mission has no title). The lobby shows the mission's preview picture and description when it has them. | MVP | Agreed |
 | REG-13 | Start areas where you can register (no race yet, or a race taking registrations) show BeamNG's mission marker, with the Time Trial icon. Tracks with a race under way show none, and none show while you race. Fallback if the game API fails: a light column with the track name. | MVP | Agreed |
 
 ### 4.2 Race start (START)

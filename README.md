@@ -31,7 +31,8 @@ to the server console. The plugin writes no files.
 
 ## Racing
 1. Start areas where you can register show BeamNG's mission marker. Drive into one: the
-   registration panel opens.
+   registration panel opens. Where several tracks start at the same spot, its ‹ › arrows pick
+   the track.
 2. Press **Register**. The owner can change laps and the DNF timeout (0 = no limit), then press
    **Start race**.
 3. Wait for the countdown, race, and see the results at the end. They close after 30 s, with

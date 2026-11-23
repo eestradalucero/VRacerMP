@@ -17,7 +17,7 @@ local DEFAULT_APPS = {
   { appName = "vracermpRaceInfo", placement = { top = "10px", left = "10px", width = "340px", height = "190px" } },
   { appName = "vracermpDeltas", placement = { top = "20%", left = "0px", right = "0px", margin = "auto", width = "300px", height = "100px" } },
   { appName = "vracermpLaps", placement = { top = "10px", right = "10px", width = "420px", height = "50px" } },
-  { appName = "vracermpLobby", placement = { top = "290px", right = "320px", width = "330px", height = "380px" } },
+  { appName = "vracermpLobby", placement = { top = "290px", right = "320px", width = "330px", height = "540px" } },
   { appName = "vracermpCountdown", placement = { top = "18%", left = "0px", right = "0px", margin = "auto", width = "420px", height = "260px" } },
   { appName = "vracermpResults", placement = { top = "14%", left = "0px", right = "0px", margin = "auto", width = "860px", height = "440px" } },
 }

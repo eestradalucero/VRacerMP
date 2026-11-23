@@ -27,6 +27,7 @@ Build one step at a time; stop after each step so it can be tested in game.
 | B-10 | Rankings: best time per player, per car and overall | Later (to discuss) |
 | B-11 | Race-only prefabs, loaded on racing clients and removed at the end | Waiting (user learns the single-player setup first) |
 | B-12 | VracerControl requests: plugin queries + `tracksUpdated` (v2), `remove --all`, `finish` | Done (tested 2026-11-23) |
+| B-13 | Track picker at start areas shared by several tracks | Done (tested 2026-11-23) |
 
 ---
 
@@ -164,6 +165,24 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
   - How many entries to show in the lobby (top 10? your own place?).
   - Do penalty laps count (B-8: yes)?
 
+### B-13 Track picker at shared start areas (agreed 2026-11-23)
+Found at Hirochi Raceway: several time trials start at the same spot, and the closest one was
+always used.
+- The lobby shows ‹ › arrows beside the track name and "Track 2 of 4 here" when several
+  tracks' start areas contain the car. Everything below (status, laps, record, Register) is for
+  the track shown.
+- It starts on a track whose race takes registrations (so players join the same race), else on
+  the closest. The pick stays while the car is in the area; once registered, the lobby shows
+  your race as before.
+- Each track at the spot can have its own race. Commands already pick by name
+  (`create --track forgotten`).
+- Markers unchanged. Possible later: a dropdown instead of arrows for spots with many tracks.
+- Track names come from the mission title, translated as BeamNG's map shows it (BeamNG's own
+  race files are just called "Path"); the race file's name is the fallback. BajaSur titles
+  change slightly (e.g. "Rancho Probaja Time Trial"); ids, records and commands are unaffected.
+- The lobby shows the mission's preview picture (`preview.jpg/.png/.jpeg`) and translated
+  description under the name, when the mission has them. Default lobby height 540 px.
+
 ### B-12 VracerControl requests (agreed 2026-11-16)
 From `VracerControl/docs/raceMP-requests.md` (R-1 to R-3). VracerControl is a separate plugin
 plus a web app for the venue; it only uses the documented plugin interface.
@@ -219,3 +238,4 @@ plus a web app for the venue; it only uses the documented plugin interface.
 | 2026-11-16 | B-4 commands for the console, chat and plugins (`--all`, test-only `fake`); clients resend their tracks until the server welcomes them. |
 | 2026-11-16 | B-2 race UI: race info, deltas and laps-and-retire apps; new time format; aligned results columns. |
 | 2026-11-23 | B-12 plugin interface v2 (queries, `tracksUpdated`), `remove --all`, `finish` (DNF `stopped`). |
+| 2026-11-23 | B-13 track picker at shared start areas; tracks named after their mission, with its picture and description. |

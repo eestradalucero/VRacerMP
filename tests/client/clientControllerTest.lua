@@ -17,7 +17,10 @@ local INFO = { missionType = "timeTrial", startTrigger = { level = "testlevel", 
 local MISSION = "/gameplay/missions/testlevel/timeTrial/001-Test"
 
 local function installGlobals()
-  FS = { findFiles = function() return { MISSION .. "/info.json" } end }
+  FS = {
+    findFiles = function() return { MISSION .. "/info.json" } end,
+    fileExists = function(_, path) return path == MISSION .. "/preview.jpg" end,
+  }
   jsonReadFile = function(path)
     if path == MISSION .. "/info.json" then return INFO end
     if path == MISSION .. "/race.race.json" then return RACE_DATA end
@@ -152,6 +155,7 @@ t.test("in a start area the lobby app offers registration", function()
   local lobby = lastUiView("VRacerMPLobby")
   t.assertTrue(lobby.visible)
   t.assertEquals(lobby.trackName, "Circuito")
+  t.assertEquals(lobby.trackPreviewPath, MISSION .. "/preview.jpg")
   t.assertTrue(lobby.canRegister)
 end)
 
