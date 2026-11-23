@@ -28,6 +28,7 @@ Build one step at a time; stop after each step so it can be tested in game.
 | B-11 | Race-only prefabs, loaded on racing clients and removed at the end | Waiting (user learns the single-player setup first) |
 | B-12 | VracerControl requests: plugin queries + `tracksUpdated` (v2), `remove --all`, `finish` | Done (tested 2026-11-23) |
 | B-13 | Track picker at start areas shared by several tracks | Done (tested 2026-11-23) |
+| B-14 | Rename the zips: `VRacerMP-client.zip` and `VRacerMP-server.zip` | Done (tested 2026-11-23) |
 
 ---
 
@@ -165,6 +166,14 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
   - How many entries to show in the lobby (top 10? your own place?).
   - Do penalty laps count (B-8: yes)?
 
+### B-14 Zip names (agreed 2026-11-23)
+- Client mod: `VRacerMP-client.zip`; server upload: `VRacerMP-server.zip`. Both were
+  `VRacerMP.zip`, which was easy to mix up when uploading.
+- The server zip keeps its `VRacerMP/` folder inside; the plugin must end up in
+  `Resources/Server/VRacerMP` (check this after the first upload to the host).
+- The old `VRacerMP.zip` must not stay in `Resources/Client` (players would load the mod
+  twice). Removed by hand on the local server, the host and the BeamMP cache.
+
 ### B-13 Track picker at shared start areas (agreed 2026-11-23)
 Found at Hirochi Raceway: several time trials start at the same spot, and the closest one was
 always used.
@@ -239,3 +248,4 @@ plus a web app for the venue; it only uses the documented plugin interface.
 | 2026-11-16 | B-2 race UI: race info, deltas and laps-and-retire apps; new time format; aligned results columns. |
 | 2026-11-23 | B-12 plugin interface v2 (queries, `tracksUpdated`), `remove --all`, `finish` (DNF `stopped`). |
 | 2026-11-23 | B-13 track picker at shared start areas; tracks named after their mission, with its picture and description. |
+| 2026-11-23 | B-14 zips renamed: `VRacerMP-client.zip` and `VRacerMP-server.zip`. |

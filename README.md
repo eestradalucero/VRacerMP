@@ -23,8 +23,10 @@ See [docs/requirements.md](docs/requirements.md) for what is planned.
 
 ## Install on a server
 1. Build (see below) or download a release.
-2. Copy `Resources/Server/VRacerMP/` into your server's `Resources/Server/`.
-3. Copy `Resources/Client/VRacerMP.zip` into your server's `Resources/Client/`.
+2. Copy `Resources/Server/VRacerMP/` into your server's `Resources/Server/`. A host that takes
+   plugin uploads gets `Resources/Server/VRacerMP-server.zip` instead; after uploading, the
+   plugin must end up in `Resources/Server/VRacerMP/`.
+3. Copy `Resources/Client/VRacerMP-client.zip` into your server's `Resources/Client/`.
 
 When a race ends, its results are posted in the server chat as one JSON message and printed
 to the server console. The plugin writes no files.
