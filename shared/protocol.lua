@@ -30,6 +30,21 @@ M.toClient = {
   notice = "vracerMP_notice",
   penalty = "vracerMP_penalty",     -- to the racer who got a time penalty
   lapRecord = "vracerMP_lapRecord", -- a track's server lap record (B-8)
+  welcome = "vracerMP_welcome",     -- answer to requestLobbies: the client stops asking
+}
+
+-- Server <-> other server plugins (B-4, v2 in B-12; see docs/commands.md). Server only.
+M.pluginInterfaceVersion = 2
+
+M.pluginEvents = {
+  command = "vracerMP_command",           -- in: (commandText, requestId?)
+  commandReply = "vracerMP_commandReply", -- out: { version, requestId, ok, lines }
+  query = "vracerMP_query",               -- in: (queryName, requestId?): "tracks" or "races"
+  queryReply = "vracerMP_queryReply",     -- out: { version, requestId, ok, query, data, error }
+  tracksUpdated = "vracerMP_tracksUpdated", -- out: { version, tracks } when new tracks were reported
+  raceUpdated = "vracerMP_raceUpdated",   -- out: the lobby payload (same as lobbyUpdated)
+  raceRemoved = "vracerMP_raceRemoved",   -- out: { raceId, missionId }
+  raceResults = "vracerMP_raceResults",   -- out: the results payload (same as raceResults)
 }
 
 M.gapKind = {

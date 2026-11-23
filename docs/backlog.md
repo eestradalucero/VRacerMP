@@ -21,11 +21,12 @@ Build one step at a time; stop after each step so it can be tested in game.
 | B-7 | Results highlight the local player | Done (tested 2026-11-16) |
 | B-8 | Server lap record | Done (tested 2026-11-16) |
 | B-3 | Missed checkpoint: catch-up + penalties | Dropped (2026-11-16): penalty framework kept |
-| B-4 | Commands (console, chat, plugins) + `docs/commands.md` | Next |
-| B-2 | Race information UI changes | Waiting (details from the user) |
+| B-4 | Commands (console, chat, plugins) + `docs/commands.md` | Done (tested 2026-11-16) |
+| B-2 | Race information UI changes | Done (tested 2026-11-16) |
 | B-9 | English and Spanish translations (BabelEdit) | Later (last, maybe a future session) |
 | B-10 | Rankings: best time per player, per car and overall | Later (to discuss) |
 | B-11 | Race-only prefabs, loaded on racing clients and removed at the end | Waiting (user learns the single-player setup first) |
+| B-12 | VracerControl requests: plugin queries + `tracksUpdated` (v2), `remove --all`, `finish` | Done (tested 2026-11-23) |
 
 ---
 
@@ -70,12 +71,27 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
 - Server: `RaceCoordinator:givePenalty(playerId, { reason, penaltyMs, details })`. A penalty
   counts for the lap it was given in and for the total time.
 - Live positions and gaps stay raw; final results are ordered by total time.
-- The racer gets a `penalty` message; the race panel shows "Penalty +m:ss.mmm".
+- The racer gets a `penalty` message; the race info app shows "Penalty: +10\".000".
 - Results screen: Time (raw), Penalties, Total columns.
 - Results JSON: `raceStats` has `rawTime`, `penaltyTime`, `totalTime`, `lapPenalties` and a
   `penalties` list; each penalty has `raceTime`, `lap`, `reason`, `penalty` and reason-specific
   `details`.
 - The `penaltyReason` enum (`shared/raceStates.lua`) is empty until the first penalty type.
+
+### B-2 Race UI (agreed 2026-11-16, from two previews)
+- The race panel becomes three apps, each movable in the layout editor:
+  - **Race info**, top left, 5 px padding, left aligned: place (`2nd`), `Total time`,
+    `Current lap`, `Best lap` (this race), `Server Record - <name>` (hidden when there is
+    none). Penalty and finish/DNF rows appear only when they apply.
+  - **Deltas**, centred a quarter down, no background: racer ahead in red (`+0".842`),
+    racer behind in green (`-1".276`). Each fades in over 0.2 s when its gap arrives, stays
+    3 s, fades out over 0.2 s, on its own.
+  - **Laps and retire**, top right: `Laps: 2/3` and Retire. The confirmation ("Retire from
+    the race? You'll be DNF." Yes, retire / Cancel) replaces that row in place.
+- Time format: `mm'ss".fff`, with hours only past an hour (`1:04'12".880`). Used everywhere
+  on screen and in chat; the results JSON keeps `mm:ss.mmm`.
+- Results: the columns line up (header and rows share one grid); same time format.
+- Pathnode count and racer count are no longer shown.
 
 ### B-4 Commands
 - One command system, three entry points sharing one parser: the server console
@@ -114,6 +130,18 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
 - **Plugin interface:** another plugin sends the event `vracerMP_command` with the command
   text and receives the reply in a reply event; VRacerMP also sends race updates and results
   as events plugins can listen to. Documented as a versioned contract.
+- **Built (2026-11-16)**, documented in [commands.md](commands.md). Decided while building:
+  - Races are named by id (`r-1`); `[race]` comes first, e.g. `fake r-1 60`.
+  - A race created in chat is owned by its creator, who is registered too.
+  - Races the server owns stay open while empty, until started or cancelled.
+  - `cancel` works at any point (also during the race); nobody gets results.
+  - `fake` is owner-only now (before: anyone registered), and only exists on a local test
+    server: `tools/build.ps1 -ServerPath` turns it on in the installed copy
+    (`serverOptions.testingCommands`); the release zip, `help` and the doc don't have it.
+  - Tracks: id = mission folder (`001-Circuito`), full mission id or name; a unique part of
+    the name also works.
+  - Plugin events: `vracerMP_commandReply`, `vracerMP_raceUpdated`, `vracerMP_raceRemoved`,
+    `vracerMP_raceResults` (JSON strings).
 
 ### B-9 Translations (last)
 - English and Spanish; edited with BabelEdit (JSON files, one per language).
@@ -135,6 +163,21 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
     Keeping it would need storage, and we agreed not to write files on the server.
   - How many entries to show in the lobby (top 10? your own place?).
   - Do penalty laps count (B-8: yes)?
+
+### B-12 VracerControl requests (agreed 2026-11-16)
+From `VracerControl/docs/raceMP-requests.md` (R-1 to R-3). VracerControl is a separate plugin
+plus a web app for the venue; it only uses the documented plugin interface.
+- **R-1 (plugin interface v2):** event `vracerMP_query` (`tracks`, `races`) answered with
+  `vracerMP_queryReply` `{ version: 2, requestId, ok, query, data: [...], error }`; event
+  `vracerMP_tracksUpdated` when a track report adds tracks. `vracerMP_commandReply` reports
+  version 2.
+- **R-2:** `remove [race] --all`: before GO everyone is unregistered (a server race stays open);
+  from the grid on everyone not finished retires and FIN-9 ends the race. Owner only in chat.
+  "Nobody to remove" when empty.
+- **R-3:** `finish [race]`: only while running ("The race has not started; use cancel" before
+  GO); finishers keep their result, the rest are DNF `stopped`; ends like a normal finish.
+  Owner only in chat.
+- Later (not requested yet): a `vracerMP_standingsUpdated` plugin event for a live leaderboard.
 
 ### B-11 Race-only prefabs (waiting)
 - Like RaceMP: a track can have prefabs (cones, barriers, props…) used only for that race.
@@ -173,3 +216,6 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
 | 2026-11-16 | B-1 vehicle configs no longer sent; B-5 DNF 0 = no limit; B-7 own row highlighted in results. |
 | 2026-11-16 | B-3 missed-checkpoint catch-up dropped; penalty framework kept for future penalty types. |
 | 2026-11-16 | B-6 results close by a bindable control (own VRacerMP controls section) and after 30 s; B-8 server lap record. |
+| 2026-11-16 | B-4 commands for the console, chat and plugins (`--all`, test-only `fake`); clients resend their tracks until the server welcomes them. |
+| 2026-11-16 | B-2 race UI: race info, deltas and laps-and-retire apps; new time format; aligned results columns. |
+| 2026-11-23 | B-12 plugin interface v2 (queries, `tracksUpdated`), `remove --all`, `finish` (DNF `stopped`). |

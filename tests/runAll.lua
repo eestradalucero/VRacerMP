@@ -9,6 +9,8 @@ local testFiles = {
   "tests/server/raceTest.lua",
   "tests/server/raceCoordinatorTest.lua",
   "tests/server/lapRecordsTest.lua",
+  "tests/server/commandLineTest.lua",
+  "tests/server/commandsTest.lua",
   "tests/client/gridBuilderTest.lua",
   "tests/client/trackInfoTest.lua",
   "tests/client/lobbyStoreTest.lua",

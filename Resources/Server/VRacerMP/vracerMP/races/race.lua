@@ -27,7 +27,14 @@ Race.__index = Race
 
 Race.COUNTDOWN_MS = COUNTDOWN_MS
 
-function Race.new(raceId, track, clock)
+-- Requester and owner for the server itself: the console or another plugin (B-4).
+-- The server owns the races it creates and may manage every race.
+Race.SERVER = "server"
+local SERVER_OWNER_NAME = "Server"
+
+-- ownerPlayerId: Race.SERVER for races created by the server; otherwise nil, and the first
+-- player who registers becomes the owner.
+function Race.new(raceId, track, clock, ownerPlayerId)
   local self = setmetatable({}, Race)
   self.raceId = raceId
   self.track = track
@@ -35,7 +42,7 @@ function Race.new(raceId, track, clock)
   self.settings = RaceSettings.new(track)
   self.state = raceState.registering
   self.racers = {}
-  self.ownerPlayerId = nil
+  self.ownerPlayerId = ownerPlayerId
   self.nextRegistrationOrder = 1
   self.gapTracker = GapTracker.new()
   self.createdAtIso = clock:getUtcIso()
@@ -67,8 +74,21 @@ function Race:getOwner()
   return self:getRacer(self.ownerPlayerId)
 end
 
-function Race:isOwner(playerId)
-  return self.ownerPlayerId ~= nil and self.ownerPlayerId == playerId
+function Race:isServerOwned()
+  return self.ownerPlayerId == Race.SERVER
+end
+
+-- The owner's name as players see it: "Server" for server races, "" when nobody owns it.
+function Race:getOwnerName()
+  if self:isServerOwned() then return SERVER_OWNER_NAME end
+  local owner = self:getOwner()
+  return owner and owner.name or ""
+end
+
+-- requester: a player ID, or Race.SERVER (which may manage every race).
+function Race:isOwner(requester)
+  if requester == Race.SERVER then return true end
+  return self.ownerPlayerId ~= nil and self.ownerPlayerId == requester
 end
 
 function Race:isRegistrationOpen()
@@ -186,6 +206,13 @@ function Race:unregister(playerId, reason)
     passOwnershipToNextRacer(self)
   end
   return { becameDnf = false, isEmpty = not hasRealPlayers(self) }
+end
+
+-- The car a racer drives, as reported when they reach the grid (players registered by a
+-- command have no car yet at registration).
+function Race:updateVehicle(playerId, vehicle)
+  local racer = self:getRacer(playerId)
+  if racer and vehicle and vehicle.model then racer.vehicle = vehicle end
 end
 
 function Race:configure(playerId, changes)
@@ -333,17 +360,28 @@ function Race:recordRecovery(playerId)
 end
 
 -- DNF timer ran out: everyone still racing is DNF (FIN-2). Returns those racers.
-function Race:applyDnfTimeout()
-  local timedOutRacers = {}
+-- Everyone still racing becomes DNF for `reason`. Returns those racers.
+local function markRacingRacersDnf(self, reason)
+  local stoppedRacers = {}
   for _, racer in ipairs(self.racers) do
     if racer:isRacing() then
-      racer:markDnf(dnfReason.timeout)
-      table.insert(timedOutRacers, racer)
+      racer:markDnf(reason)
+      table.insert(stoppedRacers, racer)
     end
   end
-  self.dnfDeadlineMs = nil
   self:updatePositions()
-  return timedOutRacers
+  return stoppedRacers
+end
+
+function Race:applyDnfTimeout()
+  self.dnfDeadlineMs = nil
+  return markRacingRacersDnf(self, dnfReason.timeout)
+end
+
+-- The `finish` command (B-12): racers who finished keep their result; everyone still racing
+-- is DNF `stopped`. Returns those racers.
+function Race:stopRemainingRacers()
+  return markRacingRacersDnf(self, dnfReason.stopped)
 end
 
 -- Timers -------------------------------------------------------------------
@@ -412,6 +450,7 @@ local function orNull(value)
 end
 
 local function serializeOwner(self)
+  if self:isServerOwned() then return { name = SERVER_OWNER_NAME, id = jsonEncoder.null } end
   local owner = self:getOwner()
   if not owner then return jsonEncoder.null end
   return { name = owner.name, id = owner.playerId }

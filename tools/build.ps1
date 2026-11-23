@@ -12,7 +12,8 @@
 
 .PARAMETER ServerPath
   Optional BeamMP server folder (the one containing ServerConfig.toml). When given, the
-  build is copied into its Resources folder. Only VRacerMP files are replaced.
+  build is copied into its Resources folder. Only VRacerMP files are replaced. That copy is a
+  local test server: its testing commands (`fake`) are turned on. The release zip keeps them off.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools/build.ps1
@@ -86,6 +87,15 @@ function Build-Client {
   Write-Host "Client mod    -> $zipPath"
 }
 
+# Only the local install gets the testing commands (serverOptions.lua).
+function Enable-TestingCommands([string]$optionsPath) {
+  $options = [System.IO.File]::ReadAllText($optionsPath)
+  $enabled = $options.Replace("testingCommands = false", "testingCommands = true")
+  if ($enabled -eq $options) { throw "testingCommands not found in $optionsPath" }
+  [System.IO.File]::WriteAllText($optionsPath, $enabled)
+  Write-Host "Testing commands on (local test server)"
+}
+
 function Install-OnServer([string]$serverFolder) {
   $serverResources = Join-Path $serverFolder "Resources"
   if (-not (Test-Path $serverResources)) { throw "No Resources folder in $serverFolder" }
@@ -93,6 +103,7 @@ function Install-OnServer([string]$serverFolder) {
   $installedPlugin = Join-Path $serverResources "Server\VRacerMP"
   Reset-Folder $installedPlugin
   Copy-Item (Join-Path $exportResources "Server\VRacerMP\*") $installedPlugin -Recurse
+  Enable-TestingCommands (Join-Path $installedPlugin "vracerMP\serverOptions.lua")
 
   Copy-Item (Join-Path $exportResources "Client\VRacerMP.zip") (Join-Path $serverResources "Client") -Force
   Write-Host "Installed on  -> $serverResources"

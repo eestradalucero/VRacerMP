@@ -24,6 +24,7 @@ M.dnfReason = {
   disconnected = "disconnected", -- left the server
   retired = "retired",           -- unregistered during the race
   notOnGrid = "notOnGrid",       -- never confirmed the grid slot
+  stopped = "stopped",           -- still racing when the race was finished by command (B-12)
 }
 
 -- Why a racer got a time penalty. Each reason has its own `details` in the results.

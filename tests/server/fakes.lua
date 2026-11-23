@@ -44,12 +44,51 @@ function M.newNetwork()
   return network
 end
 
-function M.newPlayerDirectory()
+-- namesById: connected players, e.g. { [1] = "Ana", [2] = "Bob" }; by default every ID is
+-- "Player<id>".
+function M.newPlayerDirectory(namesById)
   local directory = {}
+  function directory.getPlayerName(playerId)
+    return namesById and namesById[playerId] or ("Player" .. playerId)
+  end
+  function directory.readVehicle(vehicle)
+    if type(vehicle) ~= "table" or not vehicle.model then return nil end
+    return { model = vehicle.model }
+  end
   function directory.buildPlayer(playerId, vehicle)
-    return { playerId = playerId, name = "Player" .. playerId, beammpId = "id" .. playerId, vehicle = vehicle }
+    return { playerId = playerId, name = directory.getPlayerName(playerId), beammpId = "id" .. playerId,
+      vehicle = directory.readVehicle(vehicle) or {} }
+  end
+  function directory.getConnectedPlayerIds()
+    local playerIds = {}
+    for playerId in pairs(namesById or {}) do table.insert(playerIds, playerId) end
+    table.sort(playerIds)
+    return playerIds
+  end
+  function directory.findPlayerIdsByName(name)
+    local playerIds = {}
+    for playerId, playerName in pairs(namesById or {}) do
+      if playerName:lower() == name:lower() then table.insert(playerIds, playerId) end
+    end
+    table.sort(playerIds)
+    return playerIds
   end
   return directory
+end
+
+-- Records what is published for other plugins.
+function M.newPluginEvents()
+  local pluginEvents = { published = {} }
+  function pluginEvents.publish(eventName, payload)
+    table.insert(pluginEvents.published, { eventName = eventName, payload = payload })
+  end
+  function pluginEvents:getLastPayload(eventName)
+    for index = #self.published, 1, -1 do
+      if self.published[index].eventName == eventName then return self.published[index].payload end
+    end
+    return nil
+  end
+  return pluginEvents
 end
 
 function M.newTrackData(overrides)

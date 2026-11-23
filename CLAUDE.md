@@ -20,3 +20,13 @@ DoSomething():
 -- IF any questions, follow Uncle Bob's "Clean Code" book standards.
 - Let's try to avoid repetition, if please suggest how we can avoid it in a logical manner.
 - Split files per responsability.
+## Git workflow (gitflow)
+- `main`: stable releases only. `develop` is merged into `main` once it is considered stable.
+- `develop`: integration branch. New work branches out from `develop` and merges back into it.
+- Work branches are named `<itemID>_<ShortDescription>`, using the backlog ID
+  (`docs/backlog.md`), e.g. `B-4_ConsoleCommands`.
+- Merge a work branch into `develop` only after it is tested in game; push only after the
+  user confirms.
+- Once a work branch is merged into `develop`, delete it (locally, and on GitHub when it was
+  pushed there).
+- Never push the `legacy/*` branches.

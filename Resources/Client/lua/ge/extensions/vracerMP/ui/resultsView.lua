@@ -16,7 +16,7 @@ end
 -- "+2:28.000", or "" without penalties.
 local function getPenaltyText(penaltyMs)
   if not penaltyMs or penaltyMs <= 0 then return "" end
-  return "+" .. timeFormat.formatHudTime(penaltyMs)
+  return timeFormat.formatSignedDifference(penaltyMs, "+")
 end
 
 local function buildRow(racer, myPlayerId)
@@ -25,11 +25,12 @@ local function buildRow(racer, myPlayerId)
   return {
     position = tostring(racer.position or "-"),
     name = racer.name,
-    rawTime = isFinished and timeFormat.formatHudTime(stats.rawTime or stats.totalTime) or "-",
+    rawTime = isFinished and timeFormat.formatDisplayTime(stats.rawTime or stats.totalTime) or "-",
     penaltyTime = getPenaltyText(stats.penaltyTime),
-    totalTime = isFinished and timeFormat.formatHudTime(stats.totalTime) or "-",
-    gapToWinner = (isFinished and stats.gapToWinner and stats.gapToWinner > 0) and timeFormat.formatGap(stats.gapToWinner, false) or "",
-    bestLap = timeFormat.formatHudTime(stats.bestLapTime),
+    totalTime = isFinished and timeFormat.formatDisplayTime(stats.totalTime) or "-",
+    gapToWinner = (isFinished and stats.gapToWinner and stats.gapToWinner > 0)
+      and timeFormat.formatSignedDifference(stats.gapToWinner, "+") or "",
+    bestLap = timeFormat.formatDisplayTime(stats.bestLapTime),
     status = getStatusText(racer),
     isFinished = isFinished,
     isMe = racer.id == myPlayerId,

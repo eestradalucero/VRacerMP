@@ -51,12 +51,12 @@ t.test("presenter sends a view only when it changes", function()
   t.assertEquals(countSent(sent, "VRacerMPLobby"), 2)
 end)
 
-t.test("presenter limits the race panel to 20 updates per second", function()
+t.test("presenter limits the race info to 20 updates per second", function()
   local presenter, sent = newRecordingPresenter()
   for frame = 1, 60 do -- one second at 60 fps, the clock changes every frame
-    presenter:present({ race = { visible = true, raceTime = tostring(frame) } }, 1 / 60)
+    presenter:present({ raceInfo = { visible = true, totalTimeText = tostring(frame) } }, 1 / 60)
   end
-  local raceUpdates = countSent(sent, "VRacerMPRace")
+  local raceUpdates = countSent(sent, "VRacerMPRaceInfo")
   t.assertTrue(raceUpdates >= 18 and raceUpdates <= 21, "got " .. raceUpdates .. " race updates")
 end)
 

@@ -5,21 +5,28 @@ local RaceRegistry = require("vracerMP/races/raceRegistry")
 local RaceCoordinator = require("vracerMP/coordinator/raceCoordinator")
 local ResultsAnnouncer = require("vracerMP/results/resultsAnnouncer")
 local LapRecords = require("vracerMP/records/lapRecords")
-local chatCommands = require("vracerMP/coordinator/chatCommands")
+local TrackDirectory = require("vracerMP/tracks/trackDirectory")
 
 local toClient = protocol.toClient
 
 local function newSetup()
   local clock = fakes.newClock(0)
   local network = fakes.newNetwork()
+  local registry = RaceRegistry.new(clock)
   local coordinator = RaceCoordinator.new({
-    registry = RaceRegistry.new(clock),
+    registry = registry,
     network = network,
     playerDirectory = fakes.newPlayerDirectory(),
     resultsAnnouncer = ResultsAnnouncer.new(network),
     lapRecords = LapRecords.new(),
+    trackDirectory = TrackDirectory.new(),
   })
-  return { clock = clock, network = network, coordinator = coordinator }
+  return { clock = clock, network = network, coordinator = coordinator, registry = registry }
+end
+
+local function addFakeRacer(setup, playerId, lapSeconds)
+  local _, message = setup.coordinator:addFakeRacer(setup.registry:findRaceOfPlayer(playerId), lapSeconds)
+  return message
 end
 
 local function register(setup, playerId)
@@ -100,7 +107,7 @@ t.test("full race: grid, countdown, go, gaps, finish, results", function()
   t.assertEquals(results.status, "finished")
   t.assertEquals(results.racers[2].raceStats.gapToWinner, 250)
   t.assertEquals(#setup.network.chats, 2, "the first lap record, then the results at the end")
-  t.assertContains(setup.network.chats[1], "New server lap record on Circuito Bronco Short Course: 0:40.000 by Player1")
+  t.assertContains(setup.network.chats[1], "New server lap record on Circuito Bronco Short Course: 00'40\".000 by Player1")
   local resultsChat = setup.network.chats[2]
   t.assertContains(resultsChat, '"status":"finished"')
   t.assertContains(resultsChat, '"lapTimesReadable":["00:40.000"]')
@@ -149,8 +156,7 @@ end)
 t.test("fake racers race alone and the real player gets positions and gaps", function()
   local setup = newSetup()
   register(setup, 1)
-  local reply = chatCommands.runCommand(setup.coordinator, 1, "/vracer fake 40")
-  t.assertContains(reply, "Fake racer 1 joined")
+  t.assertContains(addFakeRacer(setup, 1, 40), "Fake racer 1 joined")
   local raceId = getRaceId(setup)
   setup.coordinator:handleConfigure(1, { raceId = raceId, laps = 1 })
   setup.coordinator:handleStartRace(1, { raceId = raceId })
@@ -226,7 +232,7 @@ end)
 t.test("fake racers stop when every real player drops out", function()
   local setup = newSetup()
   register(setup, 1)
-  chatCommands.runCommand(setup.coordinator, 1, "/vracer fake 40")
+  addFakeRacer(setup, 1, 40)
   local raceId = getRaceId(setup)
   setup.coordinator:handleStartRace(1, { raceId = raceId })
   setup.coordinator:handleGridReady(1, { raceId = raceId })
@@ -255,7 +261,7 @@ end)
 t.test("players who join get the lap records; fake racers set none", function()
   local setup = newSetup()
   register(setup, 1)
-  chatCommands.runCommand(setup.coordinator, 1, "/vracer fake 20")
+  addFakeRacer(setup, 1, 20)
   local raceId = getRaceId(setup)
   setup.coordinator:handleConfigure(1, { raceId = raceId, laps = 1 })
   setup.coordinator:handleStartRace(1, { raceId = raceId })
@@ -268,12 +274,16 @@ t.test("players who join get the lap records; fake racers set none", function()
   t.assertEquals(setup.network:getLastPayload(toClient.lapRecord).lapTimeMs, 29000)
   setup.coordinator:handleRequestLobbies(9)
   t.assertEquals(setup.network:getLastPayload(toClient.lapRecord, 9).name, "Player1")
+  t.assertEquals(setup.network:getLastPayload(toClient.welcome, 9).protocolVersion, 1)
 end)
 
-t.test("non-commands are not handled by chat commands", function()
+t.test("the grid message updates the racer's car", function()
   local setup = newSetup()
-  t.assertNil(chatCommands.runCommand(setup.coordinator, 1, "hello"))
-  t.assertContains(chatCommands.runCommand(setup.coordinator, 1, "/vracer"), "commands")
+  setup.coordinator:handleRegister(1, { track = fakes.newTrackData() })
+  local raceId = getRaceId(setup)
+  setup.coordinator:handleStartRace(1, { raceId = raceId })
+  setup.coordinator:handleGridReady(1, { raceId = raceId, vehicle = { model = "sunburst2", config = "x" } })
+  t.assertEquals(setup.registry:findRaceById(raceId):getRacer(1).vehicle.model, "sunburst2")
 end)
 
 return t.runAll("raceCoordinator")

@@ -17,7 +17,7 @@ See [docs/requirements.md](docs/requirements.md) for what is planned.
   green gap to the car behind.
 - DNF when the timeout after the winner runs out, on disconnect, or when leaving the race.
 - Results panel in game, and the results as JSON in the server chat (no files on the server).
-- BeamNG-native UI apps (race panel, lobby, countdown, results). They appear automatically the
+- BeamNG-native UI apps (race info, deltas, laps and retire, lobby, countdown, results). They appear automatically the
   first time, like BeamMP's chat; move or remove them in BeamNG's UI layout editor, where they
   show sample content so they are easy to find.
 
@@ -39,12 +39,26 @@ to the server console. The plugin writes no files.
    ("Close VRacerMP results", handy on a wheel button).
 4. Each track keeps a server lap record since the server started, shown in the lobby panel and
    announced in chat when broken.
-5. To drop out, press **Retire** on the race panel and confirm. You are DNF and stay in the
+5. To drop out, press **Retire** (top right, next to the laps) and confirm. You are DNF and stay in the
    results, and you can register for another race straight away. If every racer drops out, the
    race ends (before GO it is simply cancelled) and the track is free again.
 
-Testing alone? Register, then type `/vracer fake 60` in chat to add a fake opponent
-that laps in about 60 s.
+Testing alone? On a local test server (installed with `tools/build.ps1 -ServerPath`),
+register, then type `/vracer fake 60` in chat to add a fake opponent that laps in about 60 s.
+The release zip for a hosted server does not have this command.
+
+## Commands
+Races can also be run with commands, from the server console (`vracer help`), from chat
+(`/vracer help`) or from another server plugin. For example, in the console:
+
+```
+vracer tracks
+vracer create --track 001-Circuito --laps 3 --players Ana, Bob
+vracer start
+```
+
+Players added by command don't need to be at the start area; the start moves them to the
+grid. The full list, the rules and the plugin interface are in [docs/commands.md](docs/commands.md).
 
 ## Making a track
 Make a time trial with BeamNG's Race Editor (World Editor → Race Editor), save it as a

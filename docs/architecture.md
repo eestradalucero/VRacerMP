@@ -186,7 +186,18 @@ Resources/
     vracerMP/
       coordinator/raceCoordinator.lua -- player events -> race changes + messages + results
       coordinator/messageBuilder.lua  -- payloads sent to clients (pure)
-      coordinator/chatCommands.lua    -- /vracer commands (testing helpers)
+      coordinator/pluginPayloads.lua  -- track and race lists for other plugins (pure, B-12)
+      commands/commandEntryPoints.lua -- class: console, chat and plugin entry points (B-4)
+      commands/commandRunner.lua      -- prefixes, parse, check options, run one command
+      commands/commandLine.lua        -- reads "create --track X --laps 3" (pure)
+      commands/commandList.lua        -- every command; help and docs/commands.md come from it
+      commands/commandTargets.lua     -- which race, which players, which settings; permissions
+      commands/raceCommands.lua       -- create, add, remove, set, start, cancel, fake
+      commands/infoCommands.lua       -- tracks, races
+      commands/pluginQueries.lua      -- vracerMP_query: tracks, races as JSON arrays (B-12)
+      commands/raceText.lua           -- one-line descriptions of races and tracks (pure)
+      commands/commandsDoc.lua        -- the generated part of docs/commands.md (pure)
+      tracks/trackDirectory.lua       -- class TrackDirectory: tracks reported by clients (B-4)
       races/raceRegistry.lua          -- class RaceRegistry: all races; which race a player is in
       races/race.lua                  -- class Race (state machine, pure)
       races/racer.lua                 -- class Racer (pure)
@@ -197,6 +208,7 @@ Resources/
       races/gapTracker.lua            -- class GapTracker (pure)
       network/serverNetwork.lua       -- send / broadcast / decode (edge: MP.*)
       network/playerDirectory.lua     -- player names and BeamMP ids (edge: MP.*)
+      network/pluginEvents.lua        -- events for other server plugins (edge: MP.*)
       results/resultsAnnouncer.lua    -- sends Race:serialize() to chat as JSON when the race ends
       testing/fakeRacer.lua           -- class FakeRacer, pretend opponent (A-7)
       util/serverClock.lua            -- class ServerClock (edge: MP.CreateTimer)
@@ -224,7 +236,9 @@ Resources/
       race/gridPlacement.lua          -- teleport to grid slot via BeamNG startPosition (freeze later)
       race/playerVehicle.lua          -- the player's vehicle: id, position, model
       ui/lobbyView.lua                -- lobby view model (pure)
-      ui/raceView.lua                 -- race panel view model (pure)
+      ui/raceInfoView.lua             -- race info view model: place, times, record (pure, B-2)
+      ui/lapsView.lua                 -- laps-and-retire view model (pure, B-2)
+      ui/deltaDisplay.lua             -- class: when each gap delta is shown (pure, B-2)
       ui/resultsView.lua              -- results view model (pure)
       ui/sampleViews.lua              -- sample content for the layout editor (pure)
       ui/countdown.lua                -- class Countdown: 3-2-1-GO timing (pure)
@@ -233,7 +247,7 @@ Resources/
       ui/layoutInstaller.lua          -- adds our apps to a layout once (edge)
       ui/controlsSection.lua          -- adds the VRacerMP section to Options -> Controls (edge)
       shared/                         -- generated: copied from /shared by the build
-    ui/modules/apps/VRacerMP-RacePanel|Lobby|Countdown|Results/  -- app.json + app.vue (UI-T3)
+    ui/modules/apps/VRacerMP-RaceInfo|Deltas|Laps|Lobby|Countdown|Results/  -- app.json + app.vue (UI-T3)
     gameplay/missions/<level>/timeTrial/<mission>/  -- only for tracks that are in no map (TRK-5); empty for now
 
 shared/                               -- written once, used by both sides
@@ -351,7 +365,7 @@ Full payloads: [protocol.md](protocol.md).
 | UI-T1 | MVP used imgui windows. **Replaced by UI-T3** (2026-11-08). | Superseded |
 | UI-T2 | Countdown: our own animated app (size + transparency), timed in Lua. | Agreed |
 | UI-T3 | **BeamNG-native Vue UI apps.** BeamNG 0.40 compiles `ui/modules/apps/<App>/app.vue` from mods at runtime, so we ship `.vue` files (no build step) using BeamNG's own components and colours (`BngSimpleDataDisplay`, `BngButton`, `--bng-*` CSS variables). | Agreed |
-| UI-T4 | **Four apps**, one job each: `vracermpRacePanel` (compact race HUD), `vracermpLobby` (registration, interactive), `vracermpCountdown`, `vracermpResults` (interactive). | Agreed |
+| UI-T4 | **Six apps**, one job each: `vracermpRaceInfo` (place, times, record), `vracermpDeltas` (red / green gaps), `vracermpLaps` (laps and Retire, interactive), `vracermpLobby` (registration, interactive), `vracermpCountdown`, `vracermpResults` (interactive). Until B-2 the first three were one race panel (`vracermpRacePanel`), which the layout installer now removes from players' layouts. | Agreed |
 | UI-T5 | **On by default, then the player's.** The first time VRacerMP sees a UI layout (e.g. BeamMP's `beammp` layout), it adds its apps once with default positions through BeamNG's layout API (`ui_appLayouts.addApp`), like BeamMP's chat is there from the start. Players then move or remove them in the layout editor; they are never re-added to that layout (remembered in `/settings/vracerMP/installedLayouts.json`). | Agreed |
 | UI-T6 | Apps draw nothing when they have nothing to show, but show sample content while the layout editor is open so they can be found and moved. | Agreed |
 | UI-T7 | **Lua prepares, Vue displays.** Lua builds display-ready view models (times already formatted by `shared/timeFormat`), so formatting is not duplicated in JavaScript. Vue only renders and sends button clicks back. | Agreed |
@@ -360,7 +374,7 @@ Full payloads: [protocol.md](protocol.md).
 
 ```mermaid
 flowchart LR
-  CTRL[clientController] --> VIEWS[lobbyView / raceView / resultsView<br/>pure view models]
+  CTRL[clientController] --> VIEWS[lobbyView / raceInfoView / lapsView / deltaDisplay / resultsView<br/>pure view models]
   VIEWS --> PRES[uiPresenter<br/>send on change, 20 Hz for the race clock]
   PRES -->|guihooks.trigger| APPS[Vue apps]
   APPS -->|engineLua vracerMP_main.handleUiAction| CTRL
@@ -369,12 +383,14 @@ flowchart LR
 | Lua → UI event | App | Content |
 |----------------|-----|---------|
 | `VRacerMPLobby` | lobby | track name, racers, laps, DNF timeout, what the player may do (register, unregister, edit, start) |
-| `VRacerMPRace` | race panel | position, lap, race time, best lap, pathnodes, red / green gaps, finish text |
+| `VRacerMPRaceInfo` | race info | place, total time, current lap, best lap, server record; penalty and finish rows when they apply |
+| `VRacerMPDeltas` | deltas | `ahead` and `behind`, each `{ text, isShown }`; the app fades on `isShown` |
+| `VRacerMPLaps` | laps | `Laps: 2/3` and whether Retire is offered |
 | `VRacerMPCountdown` | countdown | text (`3`, `2`, `1`, `GO!`) and a counter that restarts the animation |
 | `VRacerMPResults` | results | title and one row per racer |
 
 UI → Lua: `vracerMP_main.handleUiAction({ action = ... })` with `register`, `unregister`,
-`changeLaps {delta}`, `changeDnfTimeout {delta}`, `startRace`, `closeResults`, `refresh`
+`changeLaps {delta}`, `changeDnfTimeout {delta}`, `startRace`, `retire`, `closeResults`, `refresh`
 (an app asks for the current state when it appears).
 
 ### 6.2 Default positions
@@ -384,10 +400,12 @@ session bar top-centre, chat bottom-left):
 
 | App | Default placement |
 |-----|-------------------|
-| Race panel | top 50px, right 320px (left of the player list), 290 × 220 |
+| Race info | top 10px, left 10px, 340 × 190 (the panel hugs its content, anchored top left) |
+| Deltas | centred, top 20%, 300 × 100 |
+| Laps | top 10px, right 10px, 420 × 50 (anchored top right; the Retire question grows to the left) |
 | Lobby | top 290px, right 320px, 330 × 360 |
 | Countdown | centred, top 18%, 420 × 260 |
-| Results | centred, top 14%, 660 × 440 |
+| Results | centred, top 14%, 860 × 440 |
 
 ## 7. Testing
 
@@ -395,7 +413,7 @@ session bar top-centre, chat bottom-left):
 |-------|-----|
 | Unit | `python tools/runTests.py` runs `tests/runAll.lua` on **Lua 5.3 and LuaJIT** (through the `lupa` package), so shared code is checked on both. Covers `/shared`, the server race rules and coordinator (with fakes), and the pure client modules. `lua tests/runAll.lua` works with any installed Lua. |
 | Server smoke | `python tools/smokeTestServer.py` loads the **built** plugin with a mock BeamMP API and plays a race against a fake racer, ending with the results chat message. |
-| Local server | BeamMP-Server on this PC + one BeamMP client: registration, start, a full race alone (with `/vracer fake`), results in chat. |
+| Local server | BeamMP-Server on this PC + one BeamMP client: registration, start, a full race alone (with `/vracer fake`), results in chat; commands from the server console (`vracer help`). |
 | Multiplayer | Second client (second PC or a friend). |
 
 The client's game-facing files (adapters, UI, controller) can only be tested in the game.
@@ -430,3 +448,6 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-16 | Controls get their own section: `controlsSection` adds `vracerMP` to BeamNG's `core_input_categories` table at load (a mod cannot ship categories.lua). |
 | 2026-11-16 | Missed-checkpoint catch-up (B-3) was built by moving BeamNG's race engine state from outside and dropped after the in-game test: on the first frame after GO the engine's previous wheel positions are still at the origin, so the line to the car crossed every pathnode and races finished at GO. The user chose to keep BeamNG's checkpoint logic untouched. What stays is a generic penalty path: `RaceCoordinator:givePenalty` → `Race:givePenalty` → `Racer:addPenalty`, with raw/total times, final order by total time, and the `penalty` message. |
 | 2026-11-16 | Lap records live in a `LapRecords` object injected into the coordinator (memory only). Records are kept per track and per vehicle model from the start. |
+| 2026-11-16 | Commands (B-4): one runner and one command list for three entry points (console `onConsoleInput`, chat `onChatMessage`, plugins `vracerMP_command`). Commands call public coordinator methods (`createRace`, `registerPlayer`, `unregisterPlayer`, `configureRace`, `startRace`, `cancelRace`, `addFakeRacer`); the client handlers reuse them, so the UI and commands follow the same rules. The console and plugins act as `Race.SERVER`, which owns the races it creates and passes every owner check. Tracks come from the clients (`requestLobbies.tracks`) into a `TrackDirectory` in memory. `help` and `docs/commands.md` are both built from `commandList`; a test fails when the document is out of date. Plugin events go through an injected `pluginEvents` edge (`MP.TriggerGlobalEvent`, JSON strings). |
+| 2026-11-16 | Race UI split into three apps (B-2): race info (top left), deltas (centre) and laps with Retire (top right). Delta timing lives in Lua (`DeltaDisplay`: shown 3.2 s per gap kind); the app only fades on `isShown`, keeping the text while it fades out. The layout installer now remembers each app per layout (`installedLayouts.json`: `{ layout: { app: true } }`; the old `true` counts as the four pre-B-2 apps), so apps added by a new version appear once, and it removes retired apps, taking their positions from the saved layout (BeamNG's `removeApp` works on that copy). Results rows share one fixed column grid in rem, so the smaller header font no longer shrinks its columns. New time format `mm'ss".fff` (`h:` past an hour) on screen and in chat. |
+| 2026-11-16 | Plugin interface v2 (B-12, requested by VracerControl): `vracerMP_query` answers with `vracerMP_queryReply` through the same entry points as commands; the payloads live in `pluginPayloads` so the coordinator can publish `vracerMP_tracksUpdated` with the same track entries (only when `TrackDirectory:reportTracks` reports new tracks). `finish` = `Race:stopRemainingRacers` (DNF `stopped`, sharing the DNF-timeout code) + the usual `concludeRacers`, so the race ends exactly like a normal finish. `remove --all` unregisters fake racers first, so the race ends only after the last real player (FIN-9). |

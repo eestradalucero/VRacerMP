@@ -18,7 +18,9 @@ local UiPresenter = require("vracerMP/ui/uiPresenter")
 local uiBridge = require("vracerMP/ui/uiBridge")
 local layoutInstaller = require("vracerMP/ui/layoutInstaller")
 local lobbyView = require("vracerMP/ui/lobbyView")
-local raceView = require("vracerMP/ui/raceView")
+local raceInfoView = require("vracerMP/ui/raceInfoView")
+local lapsView = require("vracerMP/ui/lapsView")
+local DeltaDisplay = require("vracerMP/ui/deltaDisplay")
 local resultsView = require("vracerMP/ui/resultsView")
 local sampleViews = require("vracerMP/ui/sampleViews")
 local uiActions = require("vracerMP/controller/uiActions")
@@ -33,6 +35,7 @@ local START_AREA_CHECK_SECONDS = 0.25
 local LAYOUT_CHECK_SECONDS = 2
 local NOTICE_SECONDS = 5
 local RESULTS_AUTO_CLOSE_SECONDS = 30 -- B-6
+local LOBBY_REQUEST_RETRY_SECONDS = 2
 
 local function showNotice(text)
   ui_message(text, NOTICE_SECONDS, "vracerMP")
@@ -47,12 +50,15 @@ function ClientController.new()
   self.results = nil
   self.isListening = false
   self.levelLoaded = false
+  self.isWelcomed = false -- the server answered our lobby request
+  self.secondsUntilLobbyRequest = 0
   self.trackAtStartArea = nil
   self.panelTrack = nil
   self.panelLobby = nil
   self.secondsUntilStartAreaCheck = 0
   self.secondsUntilLayoutCheck = 0
   self.countdown = Countdown.new()
+  self.deltaDisplay = DeltaDisplay.new()
   self.presenter = UiPresenter.new(uiBridge.sendToUi)
   self.startAreaMarkers = StartAreaMarkers.new()
   return self
@@ -60,17 +66,42 @@ end
 
 -- Level -------------------------------------------------------------------------------
 
+local function serializeTracksForServer(tracks)
+  local serialized = {}
+  for index, track in ipairs(tracks) do serialized[index] = track:serializeForServer() end
+  return serialized
+end
+
+-- Asks for the races and lap records, and tells the server which tracks this map has, so
+-- races can be created by command (B-4).
+local function requestLobbies(self)
+  log('D', logTag, "asking the server for races; reporting " .. #self.tracks .. " tracks")
+  clientNetwork.send(toServer.requestLobbies, { tracks = serializeTracksForServer(self.tracks) })
+end
+
+-- A message sent while we are still joining the server can be lost, so we ask again every
+-- few seconds until the server welcomes us.
+local function requestLobbiesUntilWelcomed(self, dtReal)
+  if self.isWelcomed or not self.isListening or not self.levelLoaded then return end
+  self.secondsUntilLobbyRequest = self.secondsUntilLobbyRequest - dtReal
+  if self.secondsUntilLobbyRequest > 0 then return end
+  self.secondsUntilLobbyRequest = LOBBY_REQUEST_RETRY_SECONDS
+  requestLobbies(self)
+end
+
 function ClientController:loadLevel()
   self.tracks = trackCatalog.loadTracksForLevel(getCurrentLevelIdentifier())
   self.lobbyStore:clear()
   self.lapRecordStore:clear()
   self.levelLoaded = true
-  if self.isListening then clientNetwork.send(toServer.requestLobbies, {}) end
+  self.isWelcomed = false
+  self.secondsUntilLobbyRequest = 0
 end
 
 local function endSession(self)
   if self.session then self.session:dispose() end
   self.session = nil
+  self.deltaDisplay:clear()
 end
 
 function ClientController:unloadLevel()
@@ -79,6 +110,7 @@ function ClientController:unloadLevel()
   self.tracks = {}
   self.results = nil
   self.levelLoaded = false
+  self.isWelcomed = false
   self.trackAtStartArea = nil
   self.lobbyStore:clear()
 end
@@ -91,6 +123,11 @@ end
 
 local function isRacingNow(self)
   return self.session ~= nil and self.session.state ~= RaceSession.state.finished
+end
+
+local function handleWelcome(self, payload)
+  self.isWelcomed = true
+  log('I', logTag, "joined VRacerMP on the server (protocol v" .. tostring(payload.protocolVersion) .. ")")
 end
 
 local function handleLobbyUpdated(self, lobby)
@@ -115,7 +152,8 @@ local function handleRaceStarting(self, startInfo)
   self.results = nil
   self.session = RaceSession.new(track, startInfo, vehicleId)
   if self.session:placeOnGrid() then
-    clientNetwork.send(toServer.gridReady, { raceId = startInfo.raceId })
+    -- The car we race with: players registered by a command had not told the server yet.
+    clientNetwork.send(toServer.gridReady, { raceId = startInfo.raceId, vehicle = playerVehicle.getDescription() })
   end
 end
 
@@ -134,7 +172,7 @@ local function handleGo(self, payload)
 end
 
 local function handleGap(self, payload)
-  if isAboutMySession(self, payload) then self.session:applyGap(payload) end
+  if isAboutMySession(self, payload) then self.deltaDisplay:show(payload) end
 end
 
 local function handleStandings(self, payload)
@@ -158,7 +196,8 @@ local function handleNotice(self, payload)
 end
 
 local function getPenaltyNotice(penalty)
-  return string.format("VRacerMP: +%s penalty (%s)", timeFormat.formatHudTime(penalty.penaltyMs), tostring(penalty.reason))
+  return string.format("VRacerMP: %s penalty (%s)", timeFormat.formatSignedDifference(penalty.penaltyMs, "+"),
+    tostring(penalty.reason))
 end
 
 local function handlePenalty(self, payload)
@@ -184,6 +223,7 @@ local messageHandlers = {
   [toClient.notice] = handleNotice,
   [toClient.penalty] = handlePenalty,
   [toClient.lapRecord] = handleLapRecord,
+  [toClient.welcome] = handleWelcome,
 }
 
 -- BeamMP's networking functions may appear after our extension loads, so this is retried
@@ -194,7 +234,6 @@ local function listenToServerOnce(self)
     clientNetwork.listen(eventName, function(payload) handler(self, payload) end)
   end
   self.isListening = true
-  if self.levelLoaded then clientNetwork.send(toServer.requestLobbies, {}) end
 end
 
 -- UI ------------------------------------------------------------------------------------
@@ -232,7 +271,10 @@ local function buildViews(self)
   return {
     lobby = lobbyView.build(self.panelTrack, self.panelLobby, myPlayerId,
       self.panelTrack and self.lapRecordStore:findRecord(self.panelTrack.missionId)),
-    race = self.session and raceView.build(self.session:getHudData()) or raceView.HIDDEN,
+    raceInfo = self.session and raceInfoView.build(self.session:getHudData(),
+      self.lapRecordStore:findRecord(self.session.track.missionId)) or raceInfoView.HIDDEN,
+    deltas = self.deltaDisplay:getView(self.session ~= nil),
+    laps = self.session and lapsView.build(self.session:getHudData()) or lapsView.HIDDEN,
     countdown = self.countdown:getView(),
     results = self.results and resultsView.build(self.results, myPlayerId, self.secondsUntilResultsClose)
       or resultsView.HIDDEN,
@@ -256,6 +298,7 @@ local function updateUi(self, dtReal)
   installAppsWhenDue(self, dtReal)
   closeResultsWhenDue(self, dtReal)
   self.countdown:update(dtReal)
+  self.deltaDisplay:update(dtReal)
   self.presenter:present(buildViews(self), dtReal)
 end
 
@@ -277,6 +320,7 @@ end
 
 function ClientController:update(dtReal, dtSim)
   listenToServerOnce(self)
+  requestLobbiesUntilWelcomed(self, dtReal)
   refreshStartArea(self, dtReal)
   updateSession(self, dtSim)
   updateUi(self, dtReal)
