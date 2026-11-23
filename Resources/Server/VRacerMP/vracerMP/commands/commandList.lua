@@ -97,13 +97,15 @@ commands = {
     options = { "players", "all" }, maxArguments = 1, run = raceCommands.runAdd,
   },
   {
-    name = "remove", usage = "remove [race] --players a",
+    name = "remove", usage = "remove [race] --players a | --all",
     summary = "Unregister players (after the start they retire: DNF).",
     details = {
       "In chat, leave out --players to remove yourself. Only the owner can remove others.",
+      "--all removes every racer still in the race; from the grid on they retire, and the race ends "
+        .. "as when everyone retires (before GO it is cancelled). Only the owner can use it.",
       RACE_ARGUMENT_NOTE,
     },
-    options = { "players" }, maxArguments = 1, run = raceCommands.runRemove,
+    options = { "players", "all" }, maxArguments = 1, run = raceCommands.runRemove,
   },
   {
     name = "set", usage = "set [race] [--laps N] [--dnf S]", summary = "Change a race's settings before the start.",
@@ -114,6 +116,15 @@ commands = {
     name = "start", usage = "start [race]", summary = "Start a race: racers are moved to the grid.",
     details = { "Only the owner can start a race.", RACE_ARGUMENT_NOTE },
     options = {}, maxArguments = 1, run = raceCommands.runStart,
+  },
+  {
+    name = "finish", usage = "finish [race]", summary = "End a running race now, with results.",
+    details = {
+      "Racers who finished keep their result; everyone still racing is DNF (stopped).",
+      "Only while the race is running; before GO use cancel. Only the owner can finish a race.",
+      RACE_ARGUMENT_NOTE,
+    },
+    options = {}, maxArguments = 1, run = raceCommands.runFinish,
   },
   {
     name = "cancel", usage = "cancel [race]", summary = "Cancel a race at any point; nobody gets results.",

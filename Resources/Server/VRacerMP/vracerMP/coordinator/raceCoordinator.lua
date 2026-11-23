@@ -14,6 +14,8 @@ local TrackRef = require("vracerMP/races/trackRef")
 local Race = require("vracerMP/races/race")
 local FakeRacer = require("vracerMP/testing/fakeRacer")
 local messageBuilder = require("vracerMP/coordinator/messageBuilder")
+local pluginPayloads = require("vracerMP/coordinator/pluginPayloads")
+local pluginPayloads = require("vracerMP/coordinator/pluginPayloads")
 local log = require("vracerMP/util/serverLog").log
 local timeFormat = require("vracerMP/shared/timeFormat")
 
@@ -143,11 +145,20 @@ local function findOrCreateRaceForTrack(self, track)
   return createRaceOnTrack(self, track, nil)
 end
 
+-- Plugins hear about tracks only when a report adds new ones, not on every join (B-12).
+local function reportTracks(self, playerId, trackDataList)
+  local trackCount, newTrackCount = self.trackDirectory:reportTracks(trackDataList)
+  log('I', logTag, "player", playerId, "joined VRacerMP and reported", trackCount, "tracks,", newTrackCount, "new")
+  if newTrackCount > 0 then
+    self.pluginEvents.publish(pluginEventName.tracksUpdated,
+      pluginPayloads.buildTracksUpdated(self.trackDirectory:getAllTracks()))
+  end
+end
+
 -- A player who just loaded the level reports the tracks of the map (B-4) and gets a welcome
 -- (so their game stops asking), every race and every track's lap record.
 function RaceCoordinator:handleRequestLobbies(playerId, payload)
-  local trackCount = self.trackDirectory:reportTracks(payload and payload.tracks)
-  log('I', logTag, "player", playerId, "joined VRacerMP and reported", trackCount, "tracks")
+  reportTracks(self, playerId, payload and payload.tracks)
   self.network.sendToPlayer(playerId, toClient.welcome, { protocolVersion = protocol.version })
   for _, race in ipairs(self.registry:getAllRaces()) do
     self.network.sendToPlayer(playerId, toClient.lobbyUpdated, messageBuilder.buildLobby(race))
@@ -252,6 +263,17 @@ function RaceCoordinator:createRace(track, requester)
   local race = createRaceOnTrack(self, track, nil)
   self:registerPlayer(race, requester, nil)
   return race
+end
+
+-- Ends a running race now, with results (B-12): racers who finished keep their result,
+-- everyone still racing is DNF `stopped`. Then it ends like any race: racerFinished to each,
+-- results to racers, chat and plugins. Returns true, or false and a message.
+function RaceCoordinator:finishRaceNow(race)
+  if not race:isRunning() then return false, "The race has not started; use cancel" end
+  log('I', logTag, "race", race.raceId, "finished by command")
+  concludeRacers(self, race, race:stopRemainingRacers())
+  if not race:isOver() then finishRace(self, race) end
+  return true
 end
 
 -- Cancels a race at any point (B-4): racers are told, nobody gets results.

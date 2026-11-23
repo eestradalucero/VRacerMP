@@ -50,9 +50,10 @@ also `fake [race] [lapSeconds]`, which adds a fake racer that laps at a steady p
 | `races` | List the races: id, track, state, owner, settings, racers. |
 | `create --track <id or name> [--laps N] [--dnf S] [--players a,b | --all]` | Create a race on a track. |
 | `add [race] --players a,b | --all` | Register players in a race. |
-| `remove [race] --players a` | Unregister players (after the start they retire: DNF). |
+| `remove [race] --players a | --all` | Unregister players (after the start they retire: DNF). |
 | `set [race] [--laps N] [--dnf S]` | Change a race's settings before the start. |
 | `start [race]` | Start a race: racers are moved to the grid. |
+| `finish [race]` | End a running race now, with results. |
 | `cancel [race]` | Cancel a race at any point; nobody gets results. |
 
 ### help
@@ -102,11 +103,12 @@ Register players in a race.
 
 ### remove
 
-`remove [race] --players a`
+`remove [race] --players a | --all`
 
 Unregister players (after the start they retire: DNF).
 
 - In chat, leave out --players to remove yourself. Only the owner can remove others.
+- --all removes every racer still in the race; from the grid on they retire, and the race ends as when everyone retires (before GO it is cancelled). Only the owner can use it.
 - [race] is a race id like r-1. Leave it out when there is only one race; in chat it defaults to the race you own or are in.
 
 ### set
@@ -127,6 +129,16 @@ Start a race: racers are moved to the grid.
 - Only the owner can start a race.
 - [race] is a race id like r-1. Leave it out when there is only one race; in chat it defaults to the race you own or are in.
 
+### finish
+
+`finish [race]`
+
+End a running race now, with results.
+
+- Racers who finished keep their result; everyone still racing is DNF (stopped).
+- Only while the race is running; before GO use cancel. Only the owner can finish a race.
+- [race] is a race id like r-1. Leave it out when there is only one race; in chat it defaults to the race you own or are in.
+
 ### cancel
 
 `cancel [race]`
@@ -140,7 +152,7 @@ Cancel a race at any point; nobody gets results.
 
 ## Plugin interface
 
-Version 1. Other plugins on the same BeamMP server talk to VRacerMP with BeamMP events.
+Version 2. Other plugins on the same BeamMP server talk to VRacerMP with BeamMP events.
 Arguments and payloads are strings; payloads are JSON.
 
 ### Sending a command
@@ -153,14 +165,38 @@ MP.TriggerGlobalEvent("vracerMP_command", "create --track 001-Circuito --players
 - Argument 2 (optional): a request id of your choice, returned with the reply.
 - The plugin acts as the server (see [Rules](#rules)).
 
+### Asking for data (queries)
+
+```lua
+MP.TriggerGlobalEvent("vracerMP_query", "tracks", "web-17")
+```
+
+- Argument 1: the query: `tracks` or `races`.
+- Argument 2 (optional): a request id of your choice, returned with the reply.
+- The reply is published as `vracerMP_queryReply` and is also the handler's return value:
+
+```json
+{ "version": 2, "requestId": "web-17", "ok": true, "query": "tracks", "data": [ ... ], "error": null }
+```
+
+- `data` is always a JSON array, also when empty (`[]`).
+- An unknown query: `ok: false`, `data: []`, `error: "Unknown query: <name>"`.
+
+| Query | `data` |
+|---|---|
+| `tracks` | Every known track, sorted by name (like the `tracks` command): `{ id, missionId, name, level, closed, defaultLaps, pathnodeCount }`. `id` is the mission folder (`001-Circuito`), the value `create --track` takes. |
+| `races` | Every race, ordered by race id, each exactly the lobby payload of `vracerMP_raceUpdated`: `{ raceId, missionId, trackName, closed, state, ownerId, ownerName, serverOwned, laps, dnfTimeoutSeconds, racers }`. |
+
 ### Replies and race events
 
 | Event | Payload (JSON) | When |
 |---|---|---|
 | `vracerMP_commandReply` | `{ version, requestId, ok, lines: [text] }` | After every plugin command. `requestId` is `null` when none was sent; `ok` is false when the command failed. The same JSON is also the return value of the `vracerMP_command` handler. |
+| `vracerMP_queryReply` | `{ version, requestId, ok, query, data: [...], error }` | After every query (see above). |
+| `vracerMP_tracksUpdated` | `{ version, tracks: [...] }`, the tracks as in the `tracks` query | A player's game reported tracks the server did not know yet (not on every join with the same tracks). |
 | `vracerMP_raceUpdated` | The lobby payload (`vracerMP_lobbyUpdated` in [protocol](protocol.md)) | A race was created or changed: racers, settings, state. |
 | `vracerMP_raceRemoved` | `{ raceId, missionId }` | A race ended or was cancelled. |
-| `vracerMP_raceResults` | The results payload (`vracerMP_raceResults` in [protocol](protocol.md), [requirements §6](requirements.md)) | A race finished. Not sent for cancelled races. |
+| `vracerMP_raceResults` | The results payload (`vracerMP_raceResults` in [protocol](protocol.md), [requirements §6](requirements.md)) | A race finished, also by `finish` or `remove --all`. Not sent for cancelled races. |
 
 Listening:
 
@@ -173,3 +209,8 @@ MP.RegisterEvent("vracerMP_raceResults", "onVRacerRaceResults")
 ```
 
 Changes to these events or payloads raise the version and are listed here.
+
+| Version | Changes |
+|---|---|
+| 2 (2026-11-16, B-12) | `vracerMP_query` / `vracerMP_queryReply` (`tracks`, `races`) and `vracerMP_tracksUpdated`. `vracerMP_commandReply` reports `version: 2`. New commands `finish` and `remove --all`; new DNF reason `stopped`. |
+| 1 (2026-11-16, B-4) | `vracerMP_command` / `vracerMP_commandReply`, `vracerMP_raceUpdated`, `vracerMP_raceRemoved`, `vracerMP_raceResults`. |

@@ -104,6 +104,19 @@ local function findAllPlayers(context, race)
   return players
 end
 
+-- `remove --all` (B-12): every racer still in the race (not finished, not out yet), fake
+-- racers first, so the race ends only once the last real player has gone (FIN-9).
+local function findRacersStillIn(race)
+  local fakeRacers, players = {}, {}
+  for _, racer in ipairs(race.racers) do
+    if not racer:hasLeftTheRace() then
+      table.insert(racer.isFake and fakeRacers or players, { playerId = racer.playerId, name = racer.name })
+    end
+  end
+  for _, player in ipairs(players) do table.insert(fakeRacers, player) end
+  return { found = fakeRacers, missing = {}, busy = {} }
+end
+
 -- Checks --all against --players. Returns true, or false and a message.
 local function checkAllOption(command)
   if command.options.all == nil then return true end
@@ -164,6 +177,7 @@ M.findRace = findRace
 M.takeRaceId = takeRaceId
 M.canManage = canManage
 M.checkAllOption = checkAllOption
+M.findRacersStillIn = findRacersStillIn
 M.findTargetPlayers = findTargetPlayers
 M.canChangePlayers = canChangePlayers
 M.readSettingChanges = readSettingChanges

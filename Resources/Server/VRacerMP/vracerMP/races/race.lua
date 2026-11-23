@@ -360,17 +360,28 @@ function Race:recordRecovery(playerId)
 end
 
 -- DNF timer ran out: everyone still racing is DNF (FIN-2). Returns those racers.
-function Race:applyDnfTimeout()
-  local timedOutRacers = {}
+-- Everyone still racing becomes DNF for `reason`. Returns those racers.
+local function markRacingRacersDnf(self, reason)
+  local stoppedRacers = {}
   for _, racer in ipairs(self.racers) do
     if racer:isRacing() then
-      racer:markDnf(dnfReason.timeout)
-      table.insert(timedOutRacers, racer)
+      racer:markDnf(reason)
+      table.insert(stoppedRacers, racer)
     end
   end
-  self.dnfDeadlineMs = nil
   self:updatePositions()
-  return timedOutRacers
+  return stoppedRacers
+end
+
+function Race:applyDnfTimeout()
+  self.dnfDeadlineMs = nil
+  return markRacingRacersDnf(self, dnfReason.timeout)
+end
+
+-- The `finish` command (B-12): racers who finished keep their result; everyone still racing
+-- is DNF `stopped`. Returns those racers.
+function Race:stopRemainingRacers()
+  return markRacingRacersDnf(self, dnfReason.stopped)
 end
 
 -- Timers -------------------------------------------------------------------

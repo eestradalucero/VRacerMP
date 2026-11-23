@@ -17,20 +17,21 @@ end
 
 -- trackDataList: what a client sent (see TrackRef.fromClientData). Unusable entries are skipped.
 -- Read with pairs, so it does not depend on how the JSON decoder numbers a list.
--- Returns how many tracks were usable.
+-- Returns how many tracks were usable, and how many of those the server did not know yet.
 function TrackDirectory:reportTracks(trackDataList)
-  if type(trackDataList) ~= "table" then return 0 end
-  local readCount, usableCount = 0, 0
+  if type(trackDataList) ~= "table" then return 0, 0 end
+  local readCount, usableCount, newCount = 0, 0, 0
   for _, trackData in pairs(trackDataList) do
     readCount = readCount + 1
     if readCount > MAX_TRACKS_PER_REPORT then break end
     local track = TrackRef.fromClientData(trackData)
     if track then
+      if not self.tracksByMissionId[track.missionId] then newCount = newCount + 1 end
       self.tracksByMissionId[track.missionId] = track
       usableCount = usableCount + 1
     end
   end
-  return usableCount
+  return usableCount, newCount
 end
 
 -- Every known track, sorted by name.

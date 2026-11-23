@@ -186,6 +186,7 @@ Resources/
     vracerMP/
       coordinator/raceCoordinator.lua -- player events -> race changes + messages + results
       coordinator/messageBuilder.lua  -- payloads sent to clients (pure)
+      coordinator/pluginPayloads.lua  -- track and race lists for other plugins (pure, B-12)
       commands/commandEntryPoints.lua -- class: console, chat and plugin entry points (B-4)
       commands/commandRunner.lua      -- prefixes, parse, check options, run one command
       commands/commandLine.lua        -- reads "create --track X --laps 3" (pure)
@@ -193,6 +194,7 @@ Resources/
       commands/commandTargets.lua     -- which race, which players, which settings; permissions
       commands/raceCommands.lua       -- create, add, remove, set, start, cancel, fake
       commands/infoCommands.lua       -- tracks, races
+      commands/pluginQueries.lua      -- vracerMP_query: tracks, races as JSON arrays (B-12)
       commands/raceText.lua           -- one-line descriptions of races and tracks (pure)
       commands/commandsDoc.lua        -- the generated part of docs/commands.md (pure)
       tracks/trackDirectory.lua       -- class TrackDirectory: tracks reported by clients (B-4)
@@ -448,3 +450,4 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-16 | Lap records live in a `LapRecords` object injected into the coordinator (memory only). Records are kept per track and per vehicle model from the start. |
 | 2026-11-16 | Commands (B-4): one runner and one command list for three entry points (console `onConsoleInput`, chat `onChatMessage`, plugins `vracerMP_command`). Commands call public coordinator methods (`createRace`, `registerPlayer`, `unregisterPlayer`, `configureRace`, `startRace`, `cancelRace`, `addFakeRacer`); the client handlers reuse them, so the UI and commands follow the same rules. The console and plugins act as `Race.SERVER`, which owns the races it creates and passes every owner check. Tracks come from the clients (`requestLobbies.tracks`) into a `TrackDirectory` in memory. `help` and `docs/commands.md` are both built from `commandList`; a test fails when the document is out of date. Plugin events go through an injected `pluginEvents` edge (`MP.TriggerGlobalEvent`, JSON strings). |
 | 2026-11-16 | Race UI split into three apps (B-2): race info (top left), deltas (centre) and laps with Retire (top right). Delta timing lives in Lua (`DeltaDisplay`: shown 3.2 s per gap kind); the app only fades on `isShown`, keeping the text while it fades out. The layout installer now remembers each app per layout (`installedLayouts.json`: `{ layout: { app: true } }`; the old `true` counts as the four pre-B-2 apps), so apps added by a new version appear once, and it removes retired apps, taking their positions from the saved layout (BeamNG's `removeApp` works on that copy). Results rows share one fixed column grid in rem, so the smaller header font no longer shrinks its columns. New time format `mm'ss".fff` (`h:` past an hour) on screen and in chat. |
+| 2026-11-16 | Plugin interface v2 (B-12, requested by VracerControl): `vracerMP_query` answers with `vracerMP_queryReply` through the same entry points as commands; the payloads live in `pluginPayloads` so the coordinator can publish `vracerMP_tracksUpdated` with the same track entries (only when `TrackDirectory:reportTracks` reports new tracks). `finish` = `Race:stopRemainingRacers` (DNF `stopped`, sharing the DNF-timeout code) + the usual `concludeRacers`, so the race ends exactly like a normal finish. `remove --all` unregisters fake racers first, so the race ends only after the last real player (FIN-9). |

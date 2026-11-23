@@ -79,16 +79,32 @@ local function runAdd(context, command)
   return true, registerPlayers(context, race, players)
 end
 
--- remove [race] --players a  (players may leave out --players to remove themselves)
+local function unregisterEach(context, race, players, doneWord)
+  return changeEachPlayer(players, function(playerId)
+    return context.coordinator:unregisterPlayer(race, playerId)
+  end, doneWord, "remove")
+end
+
+-- remove [race] --all (B-12): owner only. Before GO everyone is unregistered; from the grid
+-- on everyone not finished retires, and the race ends as when every racer retires (FIN-9).
+local function removeEveryRacer(context, command, race)
+  local allIsValid, allError = targets.checkAllOption(command)
+  if not allIsValid then return fail(allError) end
+  if not targets.canManage(context, race) then return fail(NOT_OWNER) end
+  local racers = targets.findRacersStillIn(race)
+  if #racers.found == 0 then return true, { "Nobody to remove" } end
+  return true, unregisterEach(context, race, racers, race:hasStarted() and "Retired" or "Removed")
+end
+
+-- remove [race] --players a | --all  (players may leave both out to remove themselves)
 local function runRemove(context, command)
   local race, raceError = targets.findRace(context, command)
   if not race then return fail(raceError) end
+  if command.options.all ~= nil then return removeEveryRacer(context, command, race) end
   local players, playersError = targets.findTargetPlayers(context, command, race)
   if not players then return fail(playersError) end
   if not targets.canChangePlayers(context, race, players) then return fail(NOT_OWNER) end
-  return true, changeEachPlayer(players, function(playerId)
-    return context.coordinator:unregisterPlayer(race, playerId)
-  end, "Removed", "remove")
+  return true, unregisterEach(context, race, players, "Removed")
 end
 
 -- set [race] [--laps N] [--dnf S]
@@ -110,6 +126,16 @@ local function runStart(context, command)
   local started, startError = context.coordinator:startRace(race, context.requester)
   if not started then return fail(startError) end
   return true, { race.raceId .. " " .. race.track.name .. " is starting with " .. #race.racers .. " racers" }
+end
+
+-- finish [race] (B-12): ends a running race now, with results.
+local function runFinish(context, command)
+  local race, raceError = targets.findRace(context, command)
+  if not race then return fail(raceError) end
+  if not targets.canManage(context, race) then return fail(NOT_OWNER) end
+  local finished, finishError = context.coordinator:finishRaceNow(race)
+  if not finished then return fail(finishError) end
+  return true, { race.raceId .. " " .. race.track.name .. " was finished; results sent" }
 end
 
 -- cancel [race]
@@ -135,6 +161,7 @@ M.runAdd = runAdd
 M.runRemove = runRemove
 M.runSet = runSet
 M.runStart = runStart
+M.runFinish = runFinish
 M.runCancel = runCancel
 M.runFake = runFake
 

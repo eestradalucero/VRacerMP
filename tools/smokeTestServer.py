@@ -139,15 +139,20 @@ def run_commands(mock, g, call):
     console = g[mock.events["onConsoleInput"]]
     print("console 'status' (not ours):", console("status"))
     for command in ["vracer tracks", "vracer create --track bronco --laps 3 --players player1, Nobody",
-                    "vracer add --all", "vracer races", "vracer cancel"]:
+                    "vracer add --all", "vracer races", "vracer finish", "vracer remove --all", "vracer cancel"]:
         print(">", command)
         print(console(command))
+    plugin_query = g[mock.events["vracerMP_query"]]
+    tracks_reply = json.loads(plugin_query("tracks", "web-1"))
+    print("query tracks:", tracks_reply["ok"], [t["id"] for t in tracks_reply["data"]], "| version", tracks_reply["version"])
+    print("query races:", plugin_query("races"))
     plugin_command = g[mock.events["vracerMP_command"]]
     reply = json.loads(plugin_command("create --track 001-circuito --dnf 0", "tablet-1"))
     print("plugin reply:", reply)
     published = [event.eventName for event in mock.pluginEvents.values()]
     print("plugin events:", sorted(set(published)))
-    return reply["ok"] and "vracerMP_commandReply" in published and "vracerMP_raceResults" in published
+    expected = {"vracerMP_commandReply", "vracerMP_queryReply", "vracerMP_tracksUpdated", "vracerMP_raceResults"}
+    return reply["ok"] and tracks_reply["ok"] and expected.issubset(set(published))
 
 
 if __name__ == "__main__":
