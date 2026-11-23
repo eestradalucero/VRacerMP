@@ -97,6 +97,11 @@ function handlePluginCommand(commandText, requestId)
   return commandEntryPoints:runPluginCommand(commandText, requestId)
 end
 
+-- Another plugin: MP.TriggerGlobalEvent("vracerMP_query", "tracks", "myRequestId") (B-12).
+function handlePluginQuery(queryName, requestId)
+  return commandEntryPoints:runPluginQuery(queryName, requestId)
+end
+
 -- Registration -------------------------------------------------------------------
 
 local function registerClientEvents()
@@ -116,6 +121,7 @@ local function registerServerEvents()
   MP.RegisterEvent("onChatMessage", "handleChatMessage")
   MP.RegisterEvent("onConsoleInput", "handleConsoleInput")
   MP.RegisterEvent(protocol.pluginEvents.command, "handlePluginCommand")
+  MP.RegisterEvent(protocol.pluginEvents.query, "handlePluginQuery")
   MP.RegisterEvent(TICK_EVENT, "handleTick")
   MP.CreateEventTimer(TICK_EVENT, TICK_INTERVAL_MS)
 end

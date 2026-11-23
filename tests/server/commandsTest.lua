@@ -199,6 +199,137 @@ t.test("cancel ends a running race without results", function()
   t.assertEquals(setup.pluginEvents:getLastPayload(pluginEvents.raceRemoved).raceId, "r-1")
 end)
 
+-- Starts the only race and runs the clock past the countdown: everyone on the grid is racing.
+local function startRacing(setup, playerIds)
+  console(setup, "start")
+  local raceId = getOnlyRace(setup).raceId
+  for _, playerId in ipairs(playerIds) do setup.coordinator:handleGridReady(playerId, { raceId = raceId }) end
+  for _ = 1, 31 do
+    setup.clock:advance(100)
+    setup.coordinator:handleTick()
+  end
+  return raceId
+end
+
+local function finishOneLap(setup, playerId, raceId)
+  for crossing = 1, 4 do
+    setup.coordinator:handlePathnodeReached(playerId, { raceId = raceId, crossingNumber = crossing,
+      raceTimeMs = crossing * 10, lapCompleted = crossing == 4 })
+  end
+end
+
+local function findResultsRacer(results, name)
+  for _, racer in ipairs(results.racers) do
+    if racer.name == name then return racer end
+  end
+  return nil
+end
+
+t.test("queries answer plugins with tracks and races as JSON arrays (v2)", function()
+  local setup = newSetup()
+  local reply = setup.entryPoints:runPluginQuery("races", "web-1")
+  t.assertContains(reply, '"data":[]', "an empty list is an array")
+  t.assertContains(reply, '"version":2')
+  local tracks = setup.pluginEvents:getLastPayload(pluginEvents.queryReply)
+  t.assertNil(tracks.data[1])
+  setup.entryPoints:runPluginQuery("tracks", "web-2")
+  tracks = setup.pluginEvents:getLastPayload(pluginEvents.queryReply)
+  t.assertTrue(tracks.ok)
+  t.assertEquals(tracks.requestId, "web-2")
+  t.assertEquals(tracks.query, "tracks")
+  t.assertEquals(tracks.data[1].id, "001-Circuito", "sorted by name")
+  t.assertEquals(tracks.data[1].level, "vracer_bajasur")
+  t.assertEquals(tracks.data[2].id, "002-Rancho")
+  t.assertEquals(tracks.data[2].closed, false)
+end)
+
+t.test("the races query returns each race's lobby payload in race id order", function()
+  local setup = newSetup()
+  console(setup, "create --track rancho")
+  console(setup, "create --track bronco --players Ana")
+  setup.entryPoints:runPluginQuery("races")
+  local reply = setup.pluginEvents:getLastPayload(pluginEvents.queryReply)
+  t.assertEquals(reply.data[1].raceId, "r-1")
+  t.assertEquals(reply.data[2].raceId, "r-2")
+  t.assertEquals(reply.data[2].racers[1].name, "Ana")
+  t.assertTrue(reply.data[2].serverOwned)
+end)
+
+t.test("an unknown query fails with an error and empty data", function()
+  local setup = newSetup()
+  local reply = setup.entryPoints:runPluginQuery("weather")
+  t.assertContains(reply, '"ok":false')
+  t.assertContains(reply, '"data":[]')
+  t.assertContains(reply, '"error":"Unknown query: weather"')
+  t.assertContains(reply, '"requestId":null')
+end)
+
+t.test("tracksUpdated is published only when a report adds tracks", function()
+  local setup = newSetup() -- the first report added two tracks
+  t.assertEquals(#setup.pluginEvents:getLastPayload(pluginEvents.tracksUpdated).tracks, 2)
+  local publishedCount = #setup.pluginEvents.published
+  setup.coordinator:handleRequestLobbies(2, { tracks = { CIRCUIT, SPRINT } })
+  t.assertEquals(#setup.pluginEvents.published, publishedCount, "same tracks: nothing published")
+  setup.coordinator:handleRequestLobbies(2, { tracks = { fakes.newTrackData({ missionId = "vracer_bajasur/timeTrial/003-Loco", name = "Loco" }) } })
+  local update = setup.pluginEvents:getLastPayload(pluginEvents.tracksUpdated)
+  t.assertEquals(update.version, 2)
+  t.assertEquals(#update.tracks, 3)
+end)
+
+t.test("remove --all before GO empties a server race, which stays open", function()
+  local setup = newSetup()
+  console(setup, "create --track bronco --players Ana, Carl")
+  local reply = console(setup, "remove --all")
+  t.assertContains(reply, "Removed Ana")
+  t.assertContains(reply, "Removed Carl")
+  t.assertEquals(#getOnlyRace(setup).racers, 0)
+  t.assertEquals(console(setup, "remove --all"), "Nobody to remove")
+  t.assertContains(console(setup, "remove --all --players Ana"), "Use either --all or --players")
+end)
+
+t.test("in chat only the owner can remove everyone", function()
+  local setup = newSetup()
+  chat(setup, 1, "create --track bronco --players Carl")
+  t.assertContains(chat(setup, 4, "remove --all"), "Only the race owner")
+  t.assertEquals(#getOnlyRace(setup).racers, 2)
+end)
+
+t.test("remove --all during the race retires everyone and ends it with results", function()
+  local setup = newSetup()
+  console(setup, "create --track bronco --laps 1 --players Ana, Carl")
+  startRacing(setup, { 1, 4 })
+  local reply = console(setup, "remove --all")
+  t.assertContains(reply, "Retired Ana")
+  t.assertContains(reply, "Retired Carl")
+  local results = setup.pluginEvents:getLastPayload(pluginEvents.raceResults)
+  t.assertEquals(findResultsRacer(results, "Carl").dnfReason, "retired")
+  t.assertEquals(#setup.registry:getAllRaces(), 0, "the track is free again")
+end)
+
+t.test("finish is refused before GO", function()
+  local setup = newSetup()
+  console(setup, "create --track bronco --players Ana")
+  t.assertContains(console(setup, "finish"), "The race has not started; use cancel")
+  console(setup, "start")
+  t.assertContains(console(setup, "finish r-1"), "The race has not started; use cancel")
+end)
+
+t.test("finish ends a running race: finishers keep their result, the rest are DNF stopped", function()
+  local setup = newSetup()
+  console(setup, "create --track bronco --laps 1 --dnf 0 --players Ana, Carl")
+  local raceId = startRacing(setup, { 1, 4 })
+  finishOneLap(setup, 1, raceId)
+  t.assertContains(chat(setup, 4, "finish"), "Only the race owner")
+  t.assertContains(console(setup, "finish"), "r-1 Circuito Bronco Short Course was finished; results sent")
+  t.assertEquals(setup.network:getLastPayload(toClient.racerFinished, 4).dnfReason, "stopped")
+  local results = setup.network:getLastPayload(toClient.raceResults, 4)
+  t.assertEquals(findResultsRacer(results, "Ana").status, "finished")
+  t.assertEquals(findResultsRacer(results, "Carl").dnfReason, "stopped")
+  t.assertEquals(setup.pluginEvents:getLastPayload(pluginEvents.raceResults).raceId, "r-1")
+  t.assertEquals(setup.pluginEvents:getLastPayload(pluginEvents.raceRemoved).raceId, "r-1")
+  t.assertContains(setup.network.chats[#setup.network.chats], '"dnfReason":"stopped"')
+end)
+
 t.test("plugins get a JSON reply, also published as an event", function()
   local setup = newSetup()
   local reply = setup.entryPoints:runPluginCommand("create --track bronco", "tablet-7")

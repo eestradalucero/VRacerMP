@@ -4,6 +4,8 @@
 --   console:  "vracer <command>" in the server console; the reply is printed there.
 --   plugin:   another plugin triggers vracerMP_command(commandText, requestId?); the reply is
 --             returned and also published as vracerMP_commandReply (docs/commands.md).
+--             Queries (plugin interface v2, B-12): vracerMP_query(queryName, requestId?),
+--             answered the same way with vracerMP_queryReply.
 --
 -- dependencies = { coordinator, registry, trackDirectory, playerDirectory,
 --                  sendChat(playerId, text), pluginEvents = { publish(eventName, payload) },
@@ -13,11 +15,10 @@ local Race = require("vracerMP/races/race")
 local protocol = require("vracerMP/shared/protocol")
 local jsonEncoder = require("vracerMP/shared/jsonEncoder")
 local commandRunner = require("vracerMP/commands/commandRunner")
+local pluginQueries = require("vracerMP/commands/pluginQueries")
 
 local CommandEntryPoints = {}
 CommandEntryPoints.__index = CommandEntryPoints
-
-local PLUGIN_REPLY_VERSION = 1
 
 function CommandEntryPoints.new(dependencies)
   local self = setmetatable({}, CommandEntryPoints)
@@ -55,18 +56,36 @@ function CommandEntryPoints:runConsoleInput(input)
   return table.concat(lines, "\n")
 end
 
+-- Publishes a reply to plugins and returns it as JSON (the handler's return value).
+local function replyToPlugins(self, eventName, reply)
+  self.dependencies.pluginEvents.publish(eventName, reply)
+  return jsonEncoder.encode(reply)
+end
+
 -- commandText without any prefix, e.g. "start r-1". Returns the reply as JSON:
 -- { version, requestId, ok, lines }.
 function CommandEntryPoints:runPluginCommand(commandText, requestId)
   local ok, lines = commandRunner.run(buildContext(self, Race.SERVER, ""), tostring(commandText or ""))
-  local reply = {
-    version = PLUGIN_REPLY_VERSION,
+  return replyToPlugins(self, protocol.pluginEvents.commandReply, {
+    version = protocol.pluginInterfaceVersion,
     requestId = requestId or jsonEncoder.null,
     ok = ok == true,
     lines = jsonEncoder.markAsArray(lines),
-  }
-  self.dependencies.pluginEvents.publish(protocol.pluginEvents.commandReply, reply)
-  return jsonEncoder.encode(reply)
+  })
+end
+
+-- queryName: "tracks" or "races". Returns the reply as JSON:
+-- { version, requestId, ok, query, data, error }.
+function CommandEntryPoints:runPluginQuery(queryName, requestId)
+  local ok, data, errorMessage = pluginQueries.run(buildContext(self, Race.SERVER, ""), queryName)
+  return replyToPlugins(self, protocol.pluginEvents.queryReply, {
+    version = protocol.pluginInterfaceVersion,
+    requestId = requestId or jsonEncoder.null,
+    ok = ok,
+    query = tostring(queryName),
+    data = data,
+    error = errorMessage or jsonEncoder.null,
+  })
 end
 
 return CommandEntryPoints

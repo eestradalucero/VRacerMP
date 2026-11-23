@@ -131,6 +131,7 @@ like BeamMP's chat, and players can move them in BeamNG's layout editor (archite
 | FIN-8 | The laps app has a **Retire** button while you race (from the grid until you finish). It asks "Retire from the race?" with **Yes, retire** / **Cancel**; the question cancels itself after 5 s. Retiring makes you DNF (`retired`) and you stay in the standings and results. | MVP | Agreed |
 | FIN-9 | When every player has dropped out (DNF): before GO the race is cancelled quietly (no results); after GO it finishes with results and everyone DNF, fake racers stop too. Either way the track is free for a new race. If someone finished, the race goes on as usual (FIN-5). | MVP | Agreed |
 | FIN-10 | **Server lap record (B-8).** The fastest lap on each track since the server started (memory only, no files), all laps counted, penalty laps included, fake racers excluded. Stored per track and vehicle model; the lobby shows the track's fastest. A new record is announced in chat. | MVP | Agreed |
+| FIN-11 | **Finish by command (B-12).** `finish [race]` ends a running race now, with results: racers who finished keep their result, everyone still racing is DNF (`stopped`). Owner only (console and plugins always). Before GO it is refused (use `cancel`, which gives no results). `remove [race] --all` retires everyone not finished, and FIN-9 then ends the race. | MVP | Agreed |
 
 ### 4.7 Results log (LOG)
 
@@ -213,7 +214,7 @@ v1. Sent as compact JSON in one chat message (LOG-1) and as the `raceResults` me
 
 Field notes:
 - `status`: `registering` | `starting` (grid + countdown) | `running` | `finished` | `aborted`.
-- racer `status`: `registered` (before GO) | `racing` | `finished` | `dnf`; `dnfReason`: `timeout` | `disconnected` | `retired` | `notOnGrid` | `null`.
+- racer `status`: `registered` (before GO) | `racing` | `finished` | `dnf`; `dnfReason`: `timeout` | `disconnected` | `retired` | `notOnGrid` | `stopped` (still racing when the race was ended with `finish`, B-12) | `null`.
 - Keys are written in alphabetical order.
 - `id` is the BeamMP player ID, which is only valid for this session and can be reused after a reconnect. `beammpId` (from `MP.GetPlayerIdentifiers`) identifies the account permanently; it is `null` for guests.
 - Times: `rawTime` is what the car drove; `totalTime` = `rawTime` + `penaltyTime`. `lapTimes` include the penalties given in that lap (`lapPenalties`), so `bestLap` / `bestLapTime` and the server record (B-8) include them too. Final `position` and `gapToWinner` use `totalTime` (TIME-7).

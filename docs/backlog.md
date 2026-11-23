@@ -26,6 +26,7 @@ Build one step at a time; stop after each step so it can be tested in game.
 | B-9 | English and Spanish translations (BabelEdit) | Later (last, maybe a future session) |
 | B-10 | Rankings: best time per player, per car and overall | Later (to discuss) |
 | B-11 | Race-only prefabs, loaded on racing clients and removed at the end | Waiting (user learns the single-player setup first) |
+| B-12 | VracerControl requests: plugin queries + `tracksUpdated` (v2), `remove --all`, `finish` | Done (tested 2026-11-23) |
 
 ---
 
@@ -163,6 +164,21 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
   - How many entries to show in the lobby (top 10? your own place?).
   - Do penalty laps count (B-8: yes)?
 
+### B-12 VracerControl requests (agreed 2026-11-16)
+From `VracerControl/docs/raceMP-requests.md` (R-1 to R-3). VracerControl is a separate plugin
+plus a web app for the venue; it only uses the documented plugin interface.
+- **R-1 (plugin interface v2):** event `vracerMP_query` (`tracks`, `races`) answered with
+  `vracerMP_queryReply` `{ version: 2, requestId, ok, query, data: [...], error }`; event
+  `vracerMP_tracksUpdated` when a track report adds tracks. `vracerMP_commandReply` reports
+  version 2.
+- **R-2:** `remove [race] --all`: before GO everyone is unregistered (a server race stays open);
+  from the grid on everyone not finished retires and FIN-9 ends the race. Owner only in chat.
+  "Nobody to remove" when empty.
+- **R-3:** `finish [race]`: only while running ("The race has not started; use cancel" before
+  GO); finishers keep their result, the rest are DNF `stopped`; ends like a normal finish.
+  Owner only in chat.
+- Later (not requested yet): a `vracerMP_standingsUpdated` plugin event for a live leaderboard.
+
 ### B-11 Race-only prefabs (waiting)
 - Like RaceMP: a track can have prefabs (cones, barriers, props…) used only for that race.
 - They are loaded on the clients that are racing it, and removed when the race ends for them
@@ -202,3 +218,4 @@ Kept as the base for future penalties (speed zones, vehicle repairs, …):
 | 2026-11-16 | B-6 results close by a bindable control (own VRacerMP controls section) and after 30 s; B-8 server lap record. |
 | 2026-11-16 | B-4 commands for the console, chat and plugins (`--all`, test-only `fake`); clients resend their tracks until the server welcomes them. |
 | 2026-11-16 | B-2 race UI: race info, deltas and laps-and-retire apps; new time format; aligned results columns. |
+| 2026-11-23 | B-12 plugin interface v2 (queries, `tracksUpdated`), `remove --all`, `finish` (DNF `stopped`). |
