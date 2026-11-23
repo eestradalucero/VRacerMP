@@ -27,4 +27,6 @@ DoSomething():
   (`docs/backlog.md`), e.g. `B-4_ConsoleCommands`.
 - Merge a work branch into `develop` only after it is tested in game; push only after the
   user confirms.
+- Once a work branch is merged into `develop`, delete it (locally, and on GitHub when it was
+  pushed there).
 - Never push the `legacy/*` branches.
