@@ -215,7 +215,7 @@ Resources/
       util/serverLog.lua              -- log(level, tag, ...) like the client (edge: Util.Log*)
       shared/                         -- generated: copied from /shared by the build
 
-  Client/   (zipped as VRacerMP.zip)
+  Client/   (zipped as VRacerMP-client.zip; the server upload zip is VRacerMP-server.zip, B-14)
     scripts/vracerMP/modScript.lua    -- loads the extension
     lua/ge/extensions/vracerMP/
       main.lua                        -- extension vracerMP_main: game hooks -> controller (glue only)
@@ -454,3 +454,4 @@ None open. A-1 to A-7 were all accepted on 2026-11-08:
 | 2026-11-16 | Plugin interface v2 (B-12, requested by VracerControl): `vracerMP_query` answers with `vracerMP_queryReply` through the same entry points as commands; the payloads live in `pluginPayloads` so the coordinator can publish `vracerMP_tracksUpdated` with the same track entries (only when `TrackDirectory:reportTracks` reports new tracks). `finish` = `Race:stopRemainingRacers` (DNF `stopped`, sharing the DNF-timeout code) + the usual `concludeRacers`, so the race ends exactly like a normal finish. `remove --all` unregisters fake racers first, so the race ends only after the last real player (FIN-9). |
 | 2026-11-23 | Shared start areas (B-13): `startAreaWatcher` returns every track around the car, closest first (ties by name, so the order is stable); `StartAreaChoice` keeps the picked track by mission id while it is still around, and starts on a track with a race taking registrations so players join the same race. The lobby's arrows send `chooseTrack {delta}`. Markers are unchanged: tracks at one spot draw their markers in the same place. |
 | 2026-11-23 | Mission texts (B-13): `trackCatalog` (edge) translates the mission title and description with `core_locales.translate` (plain text comes back unchanged) and finds the preview like BeamNG's missions module (`preview.jpg/.png/.jpeg` in the mission folder); `TrackInfo` stays pure and takes them as `missionTexts`. The lobby app shows the picture from its game path. |
+| 2026-11-23 | Zips renamed (B-14): `VRacerMP-client.zip` (players' mod, server `Resources/Client`) and `VRacerMP-server.zip` (upload for hosts), so they are not mixed up. The server zip still holds a `VRacerMP/` folder: `main.lua` expects `Resources/Server/VRacerMP`. An old `VRacerMP.zip` left in `Resources/Client` would make players load the mod twice. |

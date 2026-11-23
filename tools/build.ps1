@@ -4,9 +4,10 @@
 
 .DESCRIPTION
   - Server: copies Resources/Server/VRacerMP, plus /shared into vracerMP/shared, and zips it as
-    export/Resources/Server/VRacerMP.zip (VRacerMP/ inside) for hosts that take plugin uploads.
+    export/Resources/Server/VRacerMP-server.zip (VRacerMP/ inside) for hosts that take plugin uploads.
   - Client: zips Resources/Client (lua, scripts, ui, LICENSE, and gameplay if present), plus /shared into
-    lua/ge/extensions/vracerMP/shared, as export/Resources/Client/VRacerMP.zip.
+    lua/ge/extensions/vracerMP/shared, as export/Resources/Client/VRacerMP-client.zip.
+  The zips are named -server and -client (B-14) so the two are not mixed up when uploading.
   The zip is written with forward-slash paths (Compress-Archive on PowerShell 5.1 writes
   backslashes, which BeamNG cannot read).
 
@@ -33,10 +34,17 @@ $exportResources = Join-Path $repoRoot "export\Resources"
 $serverSource = Join-Path $repoRoot "Resources\Server\VRacerMP"
 $clientSource = Join-Path $repoRoot "Resources\Client"
 $clientItems = @("lua", "scripts", "ui", "gameplay", "LICENSE")
+$serverZipName = "VRacerMP-server.zip"
+$clientZipName = "VRacerMP-client.zip"
 
 function Reset-Folder([string]$path) {
   if (Test-Path $path) { Remove-Item -Recurse -Force $path }
   New-Item -ItemType Directory -Force $path | Out-Null
+}
+
+# Build output only: old zips (e.g. VRacerMP.zip before B-14) must not sit next to the new one.
+function Remove-OldZips([string]$folder) {
+  if (Test-Path $folder) { Get-ChildItem $folder -Filter "*.zip" -File | Remove-Item -Force }
 }
 
 function Copy-SharedCode([string]$destination) {
@@ -49,7 +57,8 @@ function Build-Server {
   Reset-Folder $destination
   Copy-Item (Join-Path $serverSource "*") $destination -Recurse
   Copy-SharedCode (Join-Path $destination "vracerMP\shared")
-  $zipPath = Join-Path $exportResources "Server\VRacerMP.zip"
+  Remove-OldZips (Join-Path $exportResources "Server")
+  $zipPath = Join-Path $exportResources "Server\$serverZipName"
   New-ZipFromFolder $destination $zipPath "VRacerMP/"
   Write-Host "Server plugin -> $destination"
   Write-Host "Server zip    -> $zipPath"
@@ -81,7 +90,8 @@ function Build-Client {
 
   $clientDestination = Join-Path $exportResources "Client"
   New-Item -ItemType Directory -Force $clientDestination | Out-Null
-  $zipPath = Join-Path $clientDestination "VRacerMP.zip"
+  Remove-OldZips $clientDestination
+  $zipPath = Join-Path $clientDestination $clientZipName
   New-ZipFromFolder $staging $zipPath
   Remove-Item -Recurse -Force $staging
   Write-Host "Client mod    -> $zipPath"
@@ -105,7 +115,7 @@ function Install-OnServer([string]$serverFolder) {
   Copy-Item (Join-Path $exportResources "Server\VRacerMP\*") $installedPlugin -Recurse
   Enable-TestingCommands (Join-Path $installedPlugin "vracerMP\serverOptions.lua")
 
-  Copy-Item (Join-Path $exportResources "Client\VRacerMP.zip") (Join-Path $serverResources "Client") -Force
+  Copy-Item (Join-Path $exportResources "Client\$clientZipName") (Join-Path $serverResources "Client") -Force
   Write-Host "Installed on  -> $serverResources"
 }
 
